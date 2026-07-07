@@ -145,9 +145,15 @@ body.fq-doc-reader-active {
 }
 
 .fq-doc-toolbar-status {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  z-index: 3;
   justify-content: flex-end;
-  justify-self: end;
-  min-width: 112px;
+  gap: 14px;
+  min-width: 0;
+  max-width: min(34vw, 420px);
+  transform: translateY(-50%);
 }
 
 .fq-doc-workspace {
@@ -547,6 +553,52 @@ body.fq-doc-reader-active {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.fq-doc-toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fq-doc-action-button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--fq-doc-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 2px;
+}
+
+button.fq-doc-action-button {
+  cursor: pointer;
+}
+
+button.fq-doc-action-button:hover {
+  color: var(--fq-doc-text);
+  background: color-mix(in srgb, var(--fq-doc-control-hover), transparent 30%);
+}
+
+button.fq-doc-action-button:focus-visible {
+  outline: 2px solid var(--fq-doc-accent);
+  outline-offset: 2px;
+}
+
+.fq-doc-action-static {
+  cursor: default;
+}
+
+.fq-doc-action-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .fq-doc-restore {

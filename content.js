@@ -1202,7 +1202,7 @@
 
     const right = document.createElement("div");
     right.className = "fq-doc-toolbar-group fq-doc-toolbar-status";
-    right.append(createStatus());
+    right.append(createStatus(), createToolbarActions());
 
     toolbar.append(left, center, right);
     return toolbar;
@@ -1432,6 +1432,53 @@
     status.setAttribute("aria-live", "polite");
     status.textContent = buildStatusText(0, 1, state.pageCount);
     return status;
+  }
+
+  function createToolbarActions() {
+    const actions = document.createElement("div");
+    actions.className = "fq-doc-toolbar-actions";
+    actions.append(
+      createStaticToolbarIcon({ title: "下载", icon: "download" }),
+      createToolbarActionButton({ title: "打印", icon: "print", onClick: () => window.print() }),
+      createStaticToolbarIcon({ title: "更多", icon: "more" }),
+    );
+    return actions;
+  }
+
+  function createStaticToolbarIcon({ title, icon }) {
+    const item = document.createElement("span");
+    item.className = "fq-doc-action-button fq-doc-action-static";
+    item.title = title;
+    item.setAttribute("role", "img");
+    item.setAttribute("aria-label", title);
+    item.innerHTML = getToolbarIconSvg(icon);
+    return item;
+  }
+
+  function createToolbarActionButton({ title, icon, onClick }) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "fq-doc-action-button";
+    button.title = title;
+    button.setAttribute("aria-label", title);
+    button.innerHTML = getToolbarIconSvg(icon);
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onClick?.();
+    });
+    return button;
+  }
+
+  function getToolbarIconSvg(icon) {
+    const icons = {
+      download: '<path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path>',
+      print:
+        '<path d="M6 9V3h12v6"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v7H6z"></path>',
+      more:
+        '<circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle>',
+    };
+    return `<svg class="fq-doc-action-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[icon] || icons.more}</svg>`;
   }
 
   function createEditedTimeTitle() {
