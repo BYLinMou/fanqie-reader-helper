@@ -345,6 +345,37 @@ body.fq-doc-reader-active {
   );
 }
 
+.fq-doc-thesis-heading {
+  margin: calc(var(--fq-doc-font-size) * 1.35) 0 calc(var(--fq-doc-font-size) * 0.65);
+  color: var(--fq-doc-text);
+  font-family:
+    var(--fq-doc-content-font-family),
+    "Noto Serif SC",
+    "Songti SC",
+    "STSong",
+    SimSun,
+    serif;
+  font-weight: 700;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.fq-doc-thesis-heading-level-2 {
+  font-size: calc(var(--fq-doc-font-size) * 1.2 + 4px);
+  line-height: 1.5;
+}
+
+.fq-doc-thesis-heading-level-3 {
+  font-size: calc(var(--fq-doc-font-size) * 1.08 + 4px);
+  line-height: 1.55;
+}
+
+.fq-doc-thesis-heading-level-4 {
+  margin-left: 2em;
+  font-size: calc(var(--fq-doc-font-size) + 4px);
+  line-height: 1.55;
+}
+
 .fq-doc-paragraph {
   margin: 0 0 calc(var(--fq-doc-font-size) * 0.9);
   color: var(--fq-doc-text);
@@ -362,6 +393,10 @@ body.fq-doc-reader-active {
   text-align: left;
   text-indent: 2em;
   overflow-wrap: break-word;
+}
+
+#fq-doc-reader-root[data-thesis-mode="true"] .fq-doc-paragraph {
+  color: color-mix(in srgb, var(--fq-doc-text), transparent 14%);
 }
 
 .fq-doc-empty {
@@ -766,6 +801,76 @@ button.fq-doc-action-button:focus-visible,
 .fq-doc-menu-theme-control .fq-doc-segment {
   min-width: 34px;
   padding: 0 7px;
+}
+
+.fq-doc-switch-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 30px;
+  cursor: pointer;
+}
+
+.fq-doc-switch {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 22px;
+}
+
+.fq-doc-switch-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.fq-doc-switch-track {
+  position: relative;
+  width: 42px;
+  height: 22px;
+  background: color-mix(in srgb, var(--fq-doc-control), #000 8%);
+  border: 1px solid var(--fq-doc-toolbar-border);
+  border-radius: 999px;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.fq-doc-switch-track::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--fq-doc-muted);
+  border-radius: 999px;
+  content: "";
+  transition:
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+.fq-doc-switch-input:checked + .fq-doc-switch-track {
+  background: color-mix(in srgb, var(--fq-doc-accent), var(--fq-doc-control) 62%);
+  border-color: var(--fq-doc-accent);
+}
+
+.fq-doc-switch-input:checked + .fq-doc-switch-track::after {
+  background: var(--fq-doc-page);
+  transform: translateX(20px);
+}
+
+.fq-doc-switch-input:focus-visible + .fq-doc-switch-track {
+  outline: 2px solid var(--fq-doc-accent);
+  outline-offset: 2px;
 }
 
 .fq-doc-action-static {

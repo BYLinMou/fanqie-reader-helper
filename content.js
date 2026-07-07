@@ -18,6 +18,7 @@
     pageWidth: "normal",
     pageScale: 100,
     theme: "system",
+    thesisMode: false,
   };
 
   const PAGE_WIDTHS = {
@@ -32,6 +33,21 @@
   const PAGE_SCALE_STEP = 5;
   const WHEEL_ZOOM_INTERVAL = 80;
   const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
+  const THESIS_HEADING_BASE_INTERVAL = 230;
+  const THESIS_HEADING_INTERVAL_OFFSETS = [0, 35, -20, 30, -10, 45];
+  const THESIS_HEADING_TITLES = [
+    "研究背景",
+    "问题界定",
+    "资料来源",
+    "方法说明",
+    "现象描述",
+    "过程分析",
+    "关键因素",
+    "结果讨论",
+    "比较观察",
+    "阶段小结",
+    "后续展望",
+  ];
 
   const SOURCE_SELECTORS = [
     ".muye-reader-content",
@@ -219,6 +235,7 @@
   function normalizeSettings(input) {
     const next = { ...DEFAULT_SETTINGS, ...(input || {}) };
     next.enabled = Boolean(next.enabled);
+    next.thesisMode = Boolean(next.thesisMode);
     next.fontSize = clampNumber(next.fontSize, 14, 28, DEFAULT_SETTINGS.fontSize);
     next.pageScale = clampNumber(
       next.pageScale,
@@ -461,7 +478,12 @@
       reason === "init" || (state.chapterIdentity && chapterIdentity !== state.chapterIdentity);
     const navigation = findNavigation();
     const navigationFingerprint = createNavigationFingerprint(navigation);
-    const renderKey = `${fingerprint}::${navigationFingerprint}::${state.settings.enabled}`;
+    const renderKey = [
+      fingerprint,
+      navigationFingerprint,
+      state.settings.enabled,
+      state.settings.thesisMode,
+    ].join("::");
     const shouldRender = renderKey !== state.lastRenderKey || reason === "init";
 
     if (fingerprint !== state.fingerprint || reason === "init") {
@@ -1152,6 +1174,7 @@
     state.root.className = "";
     state.root.dataset.theme = resolveTheme(state.settings.theme);
     state.root.dataset.themeChoice = state.settings.theme;
+    state.root.dataset.thesisMode = state.settings.thesisMode ? "true" : "false";
     state.root.style.setProperty("--fq-doc-font-size", `${state.settings.fontSize}px`);
     state.root.style.setProperty("--fq-doc-line-height", String(state.settings.lineHeight));
     state.root.style.setProperty(
@@ -1258,10 +1281,14 @@
 
       if (isPageBodyOverflowing(body) && body.childElementCount > 1) {
         body.removeChild(node);
+        const keepWithNextNode = takeKeepWithNextNode(body);
         page = createPageShell(pages.length + 1);
         body = page.querySelector(".fq-doc-page-body");
         pages.push(page);
         appendPageToScroller(scroller, page);
+        if (keepWithNextNode) {
+          body.append(keepWithNextNode);
+        }
         body.append(node);
       }
     });
@@ -1282,6 +1309,15 @@
     frame.className = "fq-doc-page-frame";
     frame.append(page);
     scroller.append(frame);
+  }
+
+  function takeKeepWithNextNode(body) {
+    const previous = body.lastElementChild;
+    if (!previous?.classList?.contains("fq-doc-thesis-heading")) {
+      return null;
+    }
+    body.removeChild(previous);
+    return previous;
   }
 
   function createPageShell(pageNumber) {
@@ -1325,10 +1361,22 @@
     nodes.push(rule);
 
     if (state.chapter.paragraphs.length) {
-      state.chapter.paragraphs.forEach((paragraph) => {
+      const contentItems = state.settings.thesisMode
+        ? createThesisContentItems(state.chapter.paragraphs)
+        : state.chapter.paragraphs.map((paragraph) => ({
+            type: "paragraph",
+            text: paragraph,
+          }));
+
+      contentItems.forEach((item) => {
+        if (item.type === "heading") {
+          nodes.push(createThesisHeadingNode(item));
+          return;
+        }
+
         const node = document.createElement("p");
         node.className = "fq-doc-paragraph";
-        node.textContent = paragraph;
+        node.textContent = item.text;
         nodes.push(node);
       });
     } else {
@@ -1339,6 +1387,113 @@
     }
 
     return nodes;
+  }
+
+  function createThesisContentItems(paragraphs) {
+    const items = [];
+    const totalCharacters = paragraphs.reduce(
+      (total, paragraph) => total + countReadableCharacters(paragraph),
+      0,
+    );
+    let charactersRead = 0;
+    let charactersSinceHeading = 0;
+    let headingIndex = 1;
+    let nextHeadingAt = getThesisHeadingInterval(0);
+
+    items.push(createThesisHeadingItem(headingIndex, 0, totalCharacters));
+
+    paragraphs.forEach((paragraph, paragraphIndex) => {
+      if (paragraphIndex > 0 && charactersSinceHeading >= nextHeadingAt) {
+        headingIndex += 1;
+        items.push(createThesisHeadingItem(headingIndex, charactersRead, totalCharacters));
+        charactersSinceHeading = 0;
+        nextHeadingAt = getThesisHeadingInterval(headingIndex - 1);
+      }
+
+      items.push({
+        type: "paragraph",
+        text: paragraph,
+      });
+      const paragraphCharacters = countReadableCharacters(paragraph);
+      charactersRead += paragraphCharacters;
+      charactersSinceHeading += paragraphCharacters;
+    });
+
+    return items;
+  }
+
+  function getThesisHeadingInterval(headingIndex) {
+    const offset = THESIS_HEADING_INTERVAL_OFFSETS[
+      headingIndex % THESIS_HEADING_INTERVAL_OFFSETS.length
+    ];
+    return THESIS_HEADING_BASE_INTERVAL + offset;
+  }
+
+  function createThesisHeadingItem(headingIndex, charactersRead, totalCharacters) {
+    const headingNumber = getThesisHeadingNumber(headingIndex, totalCharacters);
+
+    return {
+      type: "heading",
+      level: headingNumber.subSection === 1 ? 2 : 3,
+      number: `${headingNumber.section}.${headingNumber.subSection}`,
+      title: getThesisHeadingTitle(headingIndex, charactersRead, totalCharacters),
+    };
+  }
+
+  function getThesisHeadingNumber(headingIndex, totalCharacters) {
+    const estimatedHeadingCount = Math.max(
+      1,
+      Math.ceil(totalCharacters / THESIS_HEADING_BASE_INTERVAL) + 1,
+    );
+    const sectionCount = getThesisSectionCount(totalCharacters);
+    const headingsPerSection = Math.max(2, Math.ceil(estimatedHeadingCount / sectionCount));
+    const section = Math.min(
+      sectionCount,
+      Math.floor((headingIndex - 1) / headingsPerSection) + 1,
+    );
+    const subSection = headingIndex - (section - 1) * headingsPerSection;
+
+    return {
+      section,
+      subSection,
+    };
+  }
+
+  function getThesisSectionCount(totalCharacters) {
+    if (totalCharacters <= 1200) {
+      return 2;
+    }
+    if (totalCharacters <= 3600) {
+      return 3;
+    }
+    return 4;
+  }
+
+  function getThesisHeadingTitle(headingIndex, charactersRead, totalCharacters) {
+    const progress = totalCharacters > 0 ? charactersRead / totalCharacters : 0;
+    let titles = THESIS_HEADING_TITLES;
+
+    if (progress >= 0.88) {
+      titles = ["结论", "结论与展望", "研究结语"];
+    } else if (progress >= 0.72) {
+      titles = ["综合讨论", "阶段小结", "结果说明"];
+    } else if (progress >= 0.46) {
+      titles = ["关键因素", "比较观察", "进一步分析"];
+    } else if (progress >= 0.2) {
+      titles = ["现象描述", "过程分析", "资料整理"];
+    } else {
+      titles = ["研究背景", "问题界定", "方法说明"];
+    }
+
+    return titles[(headingIndex - 1) % titles.length];
+  }
+
+  function createThesisHeadingNode(item) {
+    const level = Math.min(4, Math.max(2, item.level || 3));
+    const heading = document.createElement(`h${level}`);
+    heading.className = `fq-doc-thesis-heading fq-doc-thesis-heading-level-${level}`;
+    heading.textContent = `${item.number} ${item.title}`;
+    return heading;
   }
 
   function isPageBodyOverflowing(body) {
@@ -1437,6 +1592,34 @@
     });
 
     group.append(labelNode, segmented);
+    return group;
+  }
+
+  function createSwitchControl({ label, checked, onChange }) {
+    const group = document.createElement("label");
+    group.className = "fq-doc-switch-control";
+    group.title = label;
+
+    const labelNode = document.createElement("span");
+    labelNode.className = "fq-doc-control-label";
+    labelNode.textContent = label;
+
+    const switchNode = document.createElement("span");
+    switchNode.className = "fq-doc-switch";
+
+    const input = document.createElement("input");
+    input.className = "fq-doc-switch-input";
+    input.type = "checkbox";
+    input.checked = checked;
+    input.setAttribute("aria-label", label);
+    input.addEventListener("change", () => onChange(input.checked));
+
+    const track = document.createElement("span");
+    track.className = "fq-doc-switch-track";
+    track.setAttribute("aria-hidden", "true");
+
+    switchNode.append(input, track);
+    group.append(labelNode, switchNode);
     return group;
   }
 
@@ -1658,7 +1841,13 @@
     });
     themeControl.classList.add("fq-doc-menu-theme-control");
 
-    panel.append(fontSizeControl, themeControl);
+    const thesisModeControl = createSwitchControl({
+      label: "论文模式",
+      checked: state.settings.thesisMode,
+      onChange: (thesisMode) => updateSettings({ thesisMode }),
+    });
+
+    panel.append(fontSizeControl, themeControl, thesisModeControl);
     details.append(summary, panel);
     details.addEventListener("toggle", () => {
       state.moreMenuOpen = details.open;
