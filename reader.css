@@ -19,7 +19,13 @@
   --fq-doc-control-active: #e6e8eb;
   --fq-doc-accent: #8a919b;
   --fq-doc-shadow: 0 18px 42px rgba(22, 31, 46, 0.18);
+  --fq-doc-scrollbar-track: #f3f4f6;
+  --fq-doc-scrollbar-button: #e6e8eb;
+  --fq-doc-scrollbar-thumb: #aeb4bd;
+  --fq-doc-scrollbar-thumb-hover: #8f97a3;
+  --fq-doc-scrollbar-arrow: #68707a;
   color: var(--fq-doc-text);
+  color-scheme: light;
   font-family:
     "Inter",
     "Segoe UI",
@@ -43,21 +49,32 @@
   --fq-doc-control-active: #dcefd9;
   --fq-doc-accent: #7d877c;
   --fq-doc-shadow: 0 18px 42px rgba(32, 57, 36, 0.16);
+  --fq-doc-scrollbar-track: #eef4ec;
+  --fq-doc-scrollbar-button: #e1eadd;
+  --fq-doc-scrollbar-thumb: #aebaaa;
+  --fq-doc-scrollbar-thumb-hover: #8f9d8c;
+  --fq-doc-scrollbar-arrow: #667267;
 }
 
 #fq-doc-reader-root[data-theme="dark"] {
-  --fq-doc-workspace: #111417;
-  --fq-doc-page: #1f2328;
-  --fq-doc-page-border: #353b43;
-  --fq-doc-toolbar: #191d22;
-  --fq-doc-toolbar-border: #303640;
-  --fq-doc-text: #e6e9e5;
-  --fq-doc-muted: #a4abb4;
-  --fq-doc-control: #252a31;
-  --fq-doc-control-hover: #303843;
-  --fq-doc-control-active: #3a3d42;
-  --fq-doc-accent: #aeb4bc;
+  --fq-doc-workspace: #111111;
+  --fq-doc-page: #202020;
+  --fq-doc-page-border: #3a3a3a;
+  --fq-doc-toolbar: #191919;
+  --fq-doc-toolbar-border: #333333;
+  --fq-doc-text: #e8e8e8;
+  --fq-doc-muted: #a6a6a6;
+  --fq-doc-control: #262626;
+  --fq-doc-control-hover: #303030;
+  --fq-doc-control-active: #3a3a3a;
+  --fq-doc-accent: #b5b5b5;
   --fq-doc-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+  --fq-doc-scrollbar-track: #151515;
+  --fq-doc-scrollbar-button: #202020;
+  --fq-doc-scrollbar-thumb: #646464;
+  --fq-doc-scrollbar-thumb-hover: #7a7a7a;
+  --fq-doc-scrollbar-arrow: #b8b8b8;
+  color-scheme: dark;
 }
 
 body.fq-doc-reader-active {
@@ -169,6 +186,62 @@ body.fq-doc-reader-active {
   overflow: auto;
   padding: 24px 28px 64px;
   scrollbar-gutter: stable both-edges;
+  scrollbar-color: var(--fq-doc-scrollbar-thumb) var(--fq-doc-scrollbar-track);
+}
+
+.fq-doc-scroller::-webkit-scrollbar {
+  width: 15px;
+  height: 15px;
+}
+
+.fq-doc-scroller::-webkit-scrollbar-track {
+  background: var(--fq-doc-scrollbar-track);
+}
+
+.fq-doc-scroller::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  background: var(--fq-doc-scrollbar-thumb);
+  border: 3px solid var(--fq-doc-scrollbar-track);
+  border-radius: 999px;
+}
+
+.fq-doc-scroller::-webkit-scrollbar-thumb:hover {
+  background: var(--fq-doc-scrollbar-thumb-hover);
+}
+
+.fq-doc-scroller::-webkit-scrollbar-button {
+  width: 15px;
+  height: 15px;
+  background-color: var(--fq-doc-scrollbar-button);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 7px 7px;
+}
+
+.fq-doc-scroller::-webkit-scrollbar-button:vertical:decrement {
+  background-image: linear-gradient(45deg, transparent 50%, var(--fq-doc-scrollbar-arrow) 50%),
+    linear-gradient(135deg, var(--fq-doc-scrollbar-arrow) 50%, transparent 50%);
+  background-position:
+    calc(50% - 3px) calc(50% + 1px),
+    calc(50% + 2px) calc(50% + 1px);
+  background-size:
+    5px 5px,
+    5px 5px;
+}
+
+.fq-doc-scroller::-webkit-scrollbar-button:vertical:increment {
+  background-image: linear-gradient(135deg, transparent 50%, var(--fq-doc-scrollbar-arrow) 50%),
+    linear-gradient(45deg, var(--fq-doc-scrollbar-arrow) 50%, transparent 50%);
+  background-position:
+    calc(50% - 3px) calc(50% - 1px),
+    calc(50% + 2px) calc(50% - 1px);
+  background-size:
+    5px 5px,
+    5px 5px;
+}
+
+.fq-doc-scroller::-webkit-scrollbar-corner {
+  background: var(--fq-doc-scrollbar-track);
 }
 
 .fq-doc-page-frame {
