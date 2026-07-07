@@ -361,18 +361,18 @@ body.fq-doc-reader-active {
 }
 
 .fq-doc-thesis-heading-level-2 {
-  font-size: calc(var(--fq-doc-font-size) * 1.2 + 4px);
+  font-size: calc(var(--fq-doc-font-size) * 1.2 + 3px);
   line-height: 1.5;
 }
 
 .fq-doc-thesis-heading-level-3 {
-  font-size: calc(var(--fq-doc-font-size) * 1.08 + 4px);
+  font-size: calc(var(--fq-doc-font-size) * 1.08 + 3px);
   line-height: 1.55;
 }
 
 .fq-doc-thesis-heading-level-4 {
   margin-left: 2em;
-  font-size: calc(var(--fq-doc-font-size) + 4px);
+  font-size: calc(var(--fq-doc-font-size) + 3px);
   line-height: 1.55;
 }
 
@@ -397,6 +397,18 @@ body.fq-doc-reader-active {
 
 #fq-doc-reader-root[data-thesis-mode="true"] .fq-doc-paragraph {
   color: color-mix(in srgb, var(--fq-doc-text), transparent 14%);
+}
+
+.fq-doc-page-figure {
+  margin: calc(var(--fq-doc-font-size) * 1.15) 0 calc(var(--fq-doc-font-size) * 1.05);
+  text-align: center;
+}
+
+.fq-doc-page-figure-image {
+  display: block;
+  width: 75%;
+  height: auto;
+  margin: 0 auto;
 }
 
 .fq-doc-empty {

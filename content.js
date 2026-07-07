@@ -19,6 +19,7 @@
     pageScale: 100,
     theme: "system",
     thesisMode: false,
+    figureMode: false,
   };
 
   const PAGE_WIDTHS = {
@@ -47,6 +48,22 @@
     "比较观察",
     "阶段小结",
     "后续展望",
+  ];
+  const FIGURE_ASSET_PATHS = [
+    "src/0_lRi888vssyKrR2Ks.jpg",
+    "src/1-s2.0-S0925231223010044-gr3.jpg",
+    "src/1_zOaGnixBZ9VuLm8ig_r7Ig.png",
+    "src/1b4M7o7W8bfRRxdMxtFoVBQ.webp",
+    "src/2-Figure1-1.png",
+    "src/images (1).jpg",
+    "src/images (1).png",
+    "src/images (2).jpg",
+    "src/images (2).png",
+    "src/images (3).jpg",
+    "src/images (3).png",
+    "src/images.jpg",
+    "src/images.png",
+    "src/Recommender-Systems_.webp",
   ];
 
   const SOURCE_SELECTORS = [
@@ -236,6 +253,7 @@
     const next = { ...DEFAULT_SETTINGS, ...(input || {}) };
     next.enabled = Boolean(next.enabled);
     next.thesisMode = Boolean(next.thesisMode);
+    next.figureMode = Boolean(next.figureMode);
     next.fontSize = clampNumber(next.fontSize, 14, 28, DEFAULT_SETTINGS.fontSize);
     next.pageScale = clampNumber(
       next.pageScale,
@@ -483,6 +501,7 @@
       navigationFingerprint,
       state.settings.enabled,
       state.settings.thesisMode,
+      state.settings.figureMode,
     ].join("::");
     const shouldRender = renderKey !== state.lastRenderKey || reason === "init";
 
@@ -1175,6 +1194,7 @@
     state.root.dataset.theme = resolveTheme(state.settings.theme);
     state.root.dataset.themeChoice = state.settings.theme;
     state.root.dataset.thesisMode = state.settings.thesisMode ? "true" : "false";
+    state.root.dataset.figureMode = state.settings.figureMode ? "true" : "false";
     state.root.style.setProperty("--fq-doc-font-size", `${state.settings.fontSize}px`);
     state.root.style.setProperty("--fq-doc-line-height", String(state.settings.lineHeight));
     state.root.style.setProperty(
@@ -1273,19 +1293,26 @@
     const pages = [];
     let page = createPageShell(1);
     let body = page.querySelector(".fq-doc-page-body");
+    let pageFigureState = createPageFigureState(1);
     pages.push(page);
     appendPageToScroller(scroller, page);
 
     contentNodes.forEach((node) => {
+      const insertedFigure = maybeInsertPageFigure(body, node, pageFigureState);
       body.append(node);
 
       if (isPageBodyOverflowing(body) && body.childElementCount > 1) {
         body.removeChild(node);
+        if (insertedFigure?.parentNode === body) {
+          body.removeChild(insertedFigure);
+          pageFigureState.figureInserted = false;
+        }
         const keepWithNextNode = takeKeepWithNextNode(body);
         page = createPageShell(pages.length + 1);
         body = page.querySelector(".fq-doc-page-body");
         pages.push(page);
         appendPageToScroller(scroller, page);
+        pageFigureState = createPageFigureState(pages.length);
         if (keepWithNextNode) {
           body.append(keepWithNextNode);
         }
@@ -1318,6 +1345,69 @@
     }
     body.removeChild(previous);
     return previous;
+  }
+
+  function createPageFigureState(pageNumber) {
+    return {
+      pageNumber,
+      figureInserted: false,
+    };
+  }
+
+  function maybeInsertPageFigure(body, node, pageFigureState) {
+    if (
+      !state.settings.figureMode ||
+      !FIGURE_ASSET_PATHS.length ||
+      pageFigureState.figureInserted ||
+      !node.classList?.contains("fq-doc-paragraph") ||
+      !body.lastElementChild?.classList?.contains("fq-doc-paragraph")
+    ) {
+      return null;
+    }
+
+    const figure = createPageFigureNode(pageFigureState.pageNumber);
+    body.append(figure);
+    pageFigureState.figureInserted = true;
+    return figure;
+  }
+
+  function createPageFigureNode(pageNumber) {
+    const figure = document.createElement("figure");
+    figure.className = "fq-doc-page-figure";
+
+    const image = document.createElement("img");
+    image.className = "fq-doc-page-figure-image";
+    image.src = getExtensionAssetUrl(selectPageFigureAsset(pageNumber));
+    image.alt = "论文插图";
+    image.loading = "lazy";
+    image.decoding = "async";
+
+    figure.append(image);
+    return figure;
+  }
+
+  function selectPageFigureAsset(pageNumber) {
+    const seed = createStableHash(
+      `${state.chapterIdentity || location.pathname}::${state.fingerprint}::${pageNumber}`,
+    );
+    return FIGURE_ASSET_PATHS[seed % FIGURE_ASSET_PATHS.length];
+  }
+
+  function createStableHash(value) {
+    let hash = 2166136261;
+    const text = String(value || "");
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  function getExtensionAssetUrl(path) {
+    if (globalThis.chrome?.runtime?.getURL) {
+      return globalThis.chrome.runtime.getURL(path);
+    }
+    return path;
   }
 
   function createPageShell(pageNumber) {
@@ -1847,7 +1937,13 @@
       onChange: (thesisMode) => updateSettings({ thesisMode }),
     });
 
-    panel.append(fontSizeControl, themeControl, thesisModeControl);
+    const figureModeControl = createSwitchControl({
+      label: "插图模式",
+      checked: state.settings.figureMode,
+      onChange: (figureMode) => updateSettings({ figureMode }),
+    });
+
+    panel.append(fontSizeControl, themeControl, thesisModeControl, figureModeControl);
     details.append(summary, panel);
     details.addEventListener("toggle", () => {
       state.moreMenuOpen = details.open;

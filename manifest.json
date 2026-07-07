@@ -4,6 +4,12 @@
   "version": "0.1.0",
   "description": "将番茄小说阅读页重排为在线文档式阅读界面。",
   "permissions": ["storage"],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/*"],
+      "matches": ["https://fanqienovel.com/*"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["https://fanqienovel.com/reader/*"],
