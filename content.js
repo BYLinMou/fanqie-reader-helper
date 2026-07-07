@@ -1297,7 +1297,7 @@
 
     const chapter = document.createElement("span");
     chapter.className = "fq-doc-page-chapter";
-    chapter.textContent = getDisplayChapterTitle(state.chapter.title);
+    chapter.textContent = state.chapter.title;
 
     header.append(file, chapter);
 
