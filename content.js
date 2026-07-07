@@ -121,6 +121,7 @@
       title: "正在等待正文",
       bookName: "",
       editedDateLabel: "未知",
+      loadedTimeLabel: "",
       paragraphs: [],
       wordCount: 0,
       contentFontFamily: "",
@@ -405,6 +406,7 @@
     const title = findTitle(source);
     const bookName = findBookName(title);
     const editedDateLabel = findEditedDateLabel();
+    const loadedTimeLabel = formatCurrentTime();
     const paragraphs = source ? collectParagraphs(source, title) : [];
     const wordCount = countReadableCharacters(paragraphs.join(""));
     const contentFontFamily = getContentFontFamily(source);
@@ -414,6 +416,7 @@
       title: title || "正在等待正文",
       bookName,
       editedDateLabel,
+      loadedTimeLabel,
       paragraphs,
       wordCount,
       contentFontFamily,
@@ -618,6 +621,11 @@
 
   function pad2(value) {
     return String(value).padStart(2, "0");
+  }
+
+  function formatCurrentTime() {
+    const now = new Date();
+    return `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
   }
 
   function normalizeTitle(text) {
@@ -830,6 +838,7 @@
       chapter.title,
       chapter.bookName,
       chapter.editedDateLabel,
+      chapter.loadedTimeLabel,
       chapter.wordCount,
       chapter.paragraphs.length,
       chapter.contentFontFamily,
@@ -1315,7 +1324,7 @@
   function createEditedTimeTitle() {
     const title = document.createElement("div");
     title.className = "fq-doc-file-title";
-    title.textContent = `最后编辑：${state.chapter.editedDateLabel || "未知"}`;
+    title.textContent = `最后编辑：${state.chapter.editedDateLabel || "未知"} ${state.chapter.loadedTimeLabel || ""}`.trim();
     title.title = title.textContent;
     title.setAttribute("aria-label", title.textContent);
     return title;
