@@ -96,8 +96,8 @@ body.fq-doc-reader-active {
 
 #fq-doc-reader-root.fq-doc-collapsed {
   position: fixed;
-  top: 8px;
-  left: 14px;
+  top: 12px;
+  left: 16px;
   z-index: 2147483647;
 }
 
@@ -325,7 +325,7 @@ body.fq-doc-reader-active {
     "Songti SC",
     SimSun,
     serif;
-  font-size: 34px;
+  font-size: 28px;
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: 0;

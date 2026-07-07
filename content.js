@@ -117,6 +117,8 @@
   const NAV_TEXT_RE = /(上一章|下一章|上一页|下一页|上章|下章|目录|书架|加入书架|下载|客户端|打开App|打开APP|登录|注册|评论|推荐|广告|举报|听书|分享|设置|自动阅读)/i;
   const PREV_RE = /(上一章|上一页|上章|prev|previous)/i;
   const NEXT_RE = /(下一章|下一页|下章|next)/i;
+  const CHAPTER_TITLE_RE = /^第[一二三四五六七八九十百千万两\d]+章\s*\S*/;
+  const SITE_TITLE_RE = /^(番茄小说|番茄小说网|番茄小说官网|小说|免费阅读)$/i;
 
   const state = {
     root: null,
@@ -132,6 +134,7 @@
       contentFontFamily: "",
     },
     fingerprint: "",
+    chapterIdentity: "",
     observer: null,
     refreshTimer: 0,
     progressFrame: 0,
@@ -453,6 +456,9 @@
     ensureRoot();
     const extracted = extractChapter();
     const fingerprint = createFingerprint(extracted);
+    const chapterIdentity = `${location.pathname}::${extracted.title || ""}`;
+    const shouldStartAtTop =
+      reason === "init" || (state.chapterIdentity && chapterIdentity !== state.chapterIdentity);
     const navigation = findNavigation();
     const navigationFingerprint = createNavigationFingerprint(navigation);
     const renderKey = `${fingerprint}::${navigationFingerprint}::${state.settings.enabled}`;
@@ -461,12 +467,17 @@
     if (fingerprint !== state.fingerprint || reason === "init") {
       state.chapter = extracted;
       state.fingerprint = fingerprint;
+      state.chapterIdentity = chapterIdentity;
     }
 
     state.navigation = navigation;
     if (shouldRender) {
       state.lastRenderKey = renderKey;
-      render();
+      if (shouldStartAtTop) {
+        render(null);
+      } else {
+        render();
+      }
     }
   }
 
@@ -610,7 +621,7 @@
     });
 
     if (scopedCandidates.length) {
-      return scopedCandidates.sort((a, b) => a.length - b.length)[0];
+      return scopedCandidates.sort(compareTitleCandidates)[0];
     }
 
     const documentTitle = normalizeTitle(document.title || "");
@@ -618,7 +629,33 @@
   }
 
   function isLikelyTitle(text) {
-    return Boolean(text && text.length >= 2 && text.length <= 80 && !NAV_TEXT_RE.test(text));
+    return Boolean(
+      text &&
+        text.length >= 2 &&
+        text.length <= 80 &&
+        !SITE_TITLE_RE.test(text) &&
+        !NAV_TEXT_RE.test(text),
+    );
+  }
+
+  function compareTitleCandidates(a, b) {
+    return scoreTitleCandidate(b) - scoreTitleCandidate(a) || a.length - b.length;
+  }
+
+  function scoreTitleCandidate(text) {
+    let score = 0;
+    if (CHAPTER_TITLE_RE.test(text)) {
+      score += 1000;
+    } else if (/第[一二三四五六七八九十百千万两\d]+章/.test(text)) {
+      score += 700;
+    }
+    if (SITE_TITLE_RE.test(text)) {
+      score -= 1000;
+    }
+    if (NAV_TEXT_RE.test(text)) {
+      score -= 500;
+    }
+    return score;
   }
 
   function findEditedDateLabel() {
@@ -715,12 +752,53 @@
   }
 
   function normalizeTitle(text) {
+    const cleaned = cleanText(text);
+    const parts = splitTitleParts(cleaned)
+      .map(cleanTitlePart)
+      .filter((part) => part && !SITE_TITLE_RE.test(part));
+    const chapterPart = parts.find((part) => CHAPTER_TITLE_RE.test(part));
+    const candidate = chapterPart || cleanTitlePart(cleaned);
+    return formatChapterTitle(candidate);
+  }
+
+  function splitTitleParts(text) {
     return cleanText(text)
-      .replace(/[_\-|｜].*?番茄小说.*$/i, "")
-      .replace(/番茄小说.*$/i, "")
+      .split(/[_|｜]+|\s+-\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+
+  function cleanTitlePart(text) {
+    return cleanText(text)
+      .replace(/^返回\s*/, "")
+      .replace(/在线免费阅读.*$/i, "")
       .replace(/免费阅读.*$/i, "")
+      .replace(/番茄小说官网.*$/i, "")
+      .replace(/番茄小说网.*$/i, "")
+      .replace(/番茄小说.*$/i, "")
+      .replace(/最新章节.*$/i, "")
+      .replace(/全文阅读.*$/i, "")
+      .replace(/[_\-|｜]+$/g, "")
+      .trim();
+  }
+
+  function cleanBookPart(text) {
+    return cleanTitlePart(text)
+      .replace(/第[一二三四五六七八九十百千万两\d]+章.*$/i, "")
+      .replace(/[_\-|｜]+$/g, "")
+      .trim();
+  }
+
+  function formatChapterTitle(text) {
+    return cleanText(text)
       .replace(/^(第[一二三四五六七八九十百千万两\d]+章)\s*(?=\S)/, "$1 ")
       .trim();
+  }
+
+  function getDisplayChapterTitle(title) {
+    return cleanText(title)
+      .replace(/^第[一二三四五六七八九十百千万两\d]+章\s*/, "")
+      .trim() || cleanText(title);
   }
 
   function findBookName(chapterTitle) {
@@ -748,25 +826,22 @@
   }
 
   function normalizeBookName(text, chapterTitle) {
-    let cleaned = cleanText(text)
-      .replace(/在线免费阅读.*$/i, "")
-      .replace(/番茄小说官网.*$/i, "")
-      .replace(/番茄小说.*$/i, "")
-      .replace(/免费阅读.*$/i, "")
-      .replace(/^返回\s*/, "")
-      .trim();
+    const cleaned = cleanText(text).replace(/^返回\s*/, "").trim();
+    const chapterCompact = chapterTitle ? chapterTitle.replace(/\s+/g, "") : "";
+    const parts = splitTitleParts(cleaned)
+      .map(cleanBookPart)
+      .map((part) => {
+        if (!chapterTitle) {
+          return part;
+        }
+        return part
+          .replace(chapterTitle, "")
+          .replace(chapterCompact, "")
+          .trim();
+      })
+      .filter((part) => part && !SITE_TITLE_RE.test(part) && !CHAPTER_TITLE_RE.test(part));
 
-    if (chapterTitle) {
-      cleaned = cleaned.replace(chapterTitle, "").trim();
-      cleaned = cleaned.replace(chapterTitle.replace(/\s+/g, ""), "").trim();
-    }
-
-    cleaned = cleaned
-      .replace(/第[一二三四五六七八九十百千万两\d]+章.*$/i, "")
-      .replace(/[_\-|｜]+$/g, "")
-      .trim();
-
-    return cleaned;
+    return parts.sort((a, b) => b.length - a.length)[0] || "";
   }
 
   function isLikelyBookName(text) {
@@ -1066,10 +1141,12 @@
     return null;
   }
 
-  function render(positionToRestore = null) {
+  function render(positionToRestore) {
     ensureRoot();
     const previousPosition =
-      positionToRestore || capturePagePosition(state.root.querySelector(".fq-doc-scroller"));
+      arguments.length > 0
+        ? positionToRestore
+        : capturePagePosition(state.root.querySelector(".fq-doc-scroller"));
     applySourceVisibility();
 
     state.root.className = "";
@@ -1220,7 +1297,7 @@
 
     const chapter = document.createElement("span");
     chapter.className = "fq-doc-page-chapter";
-    chapter.textContent = state.chapter.title;
+    chapter.textContent = getDisplayChapterTitle(state.chapter.title);
 
     header.append(file, chapter);
 
@@ -1240,7 +1317,7 @@
 
     const heading = document.createElement("h1");
     heading.className = "fq-doc-title";
-    heading.textContent = state.chapter.title;
+    heading.textContent = getDisplayChapterTitle(state.chapter.title);
     nodes.push(heading);
 
     const rule = document.createElement("div");
@@ -1781,6 +1858,11 @@
       return { page: state.currentPage, offsetRatio: 0 };
     }
 
+    const firstPageStart = getPageStartScrollTop(scroller, pages[0]);
+    if (scroller.scrollTop < firstPageStart) {
+      return { page: 1, offsetRatio: 0, beforeFirstPage: true };
+    }
+
     const marker = scroller.scrollTop + 8;
     let pageIndex = 0;
     pages.forEach((page, index) => {
@@ -1807,6 +1889,11 @@
       return;
     }
 
+    if (position.beforeFirstPage) {
+      scroller.scrollTop = 0;
+      return;
+    }
+
     const pages = Array.from(scroller.querySelectorAll(".fq-doc-page"));
     const pageIndex = Math.min(Math.max(1, position.page), pages.length || 1) - 1;
     const page = pages[pageIndex];
@@ -1824,10 +1911,10 @@
   }
 
   function getPageStartScrollTop(scroller, page) {
-    const header = page.querySelector(".fq-doc-page-head") || page;
+    const anchor = page.closest(".fq-doc-page-frame") || page;
     const scrollerRect = scroller.getBoundingClientRect();
-    const headerRect = header.getBoundingClientRect();
-    return scroller.scrollTop + headerRect.top - scrollerRect.top;
+    const anchorRect = anchor.getBoundingClientRect();
+    return scroller.scrollTop + anchorRect.top - scrollerRect.top;
   }
 
   function updateProgress(scroller) {
