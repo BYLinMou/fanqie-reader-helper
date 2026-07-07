@@ -16,7 +16,7 @@
     fontSize: 18,
     lineHeight: 1.85,
     pageWidth: "normal",
-    theme: "paper",
+    theme: "system",
   };
 
   const PAGE_WIDTHS = {
@@ -24,7 +24,9 @@
     normal: 860,
     wide: 1040,
   };
+  const A4_PAGE_WIDTH = 860;
   const A4_RATIO = 297 / 210;
+  const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
 
   const SOURCE_SELECTORS = [
     ".muye-reader-content",
@@ -54,6 +56,17 @@
     "[class*='ChapterTitle']",
     "h1",
     "h2",
+  ];
+
+  const UPDATED_AT_SELECTORS = [
+    ".muye-reader-subtitle",
+    ".reader-subtitle",
+    ".chapter-subtitle",
+    ".desc-item",
+    "[class*='muye-reader-subtitle']",
+    "[class*='reader-subtitle']",
+    "[class*='ChapterSubtitle']",
+    "[class*='desc-item']",
   ];
 
   const BOOK_TITLE_SELECTORS = [
@@ -107,6 +120,7 @@
     chapter: {
       title: "正在等待正文",
       bookName: "",
+      editedDateLabel: "未知",
       paragraphs: [],
       wordCount: 0,
       contentFontFamily: "",
@@ -180,6 +194,7 @@
     patchHistoryEvents();
     installObservers();
     installStorageListener();
+    installSystemThemeListener();
     refresh("init");
 
     [250, 900, 1800, 3500].forEach((delay) => {
@@ -200,7 +215,7 @@
     if (!Object.prototype.hasOwnProperty.call(PAGE_WIDTHS, next.pageWidth)) {
       next.pageWidth = DEFAULT_SETTINGS.pageWidth;
     }
-    if (!["paper", "green", "dark"].includes(next.theme)) {
+    if (!["system", "paper", "green", "dark"].includes(next.theme)) {
       next.theme = DEFAULT_SETTINGS.theme;
     }
     return next;
@@ -306,6 +321,19 @@
     });
   }
 
+  function installSystemThemeListener() {
+    const media = window.matchMedia?.(SYSTEM_DARK_QUERY);
+    if (!media?.addEventListener) {
+      return;
+    }
+
+    media.addEventListener("change", () => {
+      if (state.settings.theme === "system") {
+        render();
+      }
+    });
+  }
+
   function patchHistoryEvents() {
     if (window.__fanqieDocumentReaderHistoryPatched) {
       return;
@@ -376,6 +404,7 @@
 
     const title = findTitle(source);
     const bookName = findBookName(title);
+    const editedDateLabel = findEditedDateLabel();
     const paragraphs = source ? collectParagraphs(source, title) : [];
     const wordCount = countReadableCharacters(paragraphs.join(""));
     const contentFontFamily = getContentFontFamily(source);
@@ -384,6 +413,7 @@
     return {
       title: title || "正在等待正文",
       bookName,
+      editedDateLabel,
       paragraphs,
       wordCount,
       contentFontFamily,
@@ -500,6 +530,94 @@
 
   function isLikelyTitle(text) {
     return Boolean(text && text.length >= 2 && text.length <= 80 && !NAV_TEXT_RE.test(text));
+  }
+
+  function findEditedDateLabel() {
+    for (const selector of UPDATED_AT_SELECTORS) {
+      for (const element of document.querySelectorAll(selector)) {
+        if (state.root && state.root.contains(element)) {
+          continue;
+        }
+
+        const formatted = formatEditedDateFromText(readElementText(element));
+        if (formatted) {
+          return formatted;
+        }
+      }
+    }
+
+    const dateModified = Array.from(
+      document.querySelectorAll("script[type='application/ld+json']"),
+    )
+      .map((script) => formatEditedDateFromText(script.textContent || ""))
+      .find(Boolean);
+
+    return dateModified || "未知";
+  }
+
+  function formatEditedDateFromText(text) {
+    const cleaned = cleanText(text);
+    const labeledMatch = cleaned.match(
+      /更新时间[:：]?\s*((?:\d{4}[-/.年])?\d{1,2}[-/.月]\d{1,2}(?:日)?)/,
+    );
+    const dateMatch =
+      labeledMatch ||
+      cleaned.match(/dateModified["']?\s*[:：]\s*["']?(\d{4}[-/.年]\d{1,2}[-/.月]\d{1,2})/i) ||
+      cleaned.match(/(\d{4}[-/.年]\d{1,2}[-/.月]\d{1,2}(?:日)?)/) ||
+      cleaned.match(/(\d{1,2}[-/.月]\d{1,2}(?:日)?)/);
+
+    if (!dateMatch) {
+      return "";
+    }
+
+    return formatDateParts(dateMatch[1]);
+  }
+
+  function formatDateParts(rawDate) {
+    const parts = String(rawDate)
+      .replace(/[年月.]/g, "-")
+      .replace(/日/g, "")
+      .replace(/\//g, "-")
+      .split("-")
+      .filter(Boolean)
+      .map((part) => Number(part));
+
+    let year;
+    let month;
+    let day;
+
+    if (parts.length >= 3 && parts[0] > 31) {
+      [year, month, day] = parts;
+    } else if (parts.length >= 2) {
+      year = new Date().getFullYear();
+      [month, day] = parts;
+    } else {
+      return "";
+    }
+
+    if (!isValidDateParts(year, month, day)) {
+      return "";
+    }
+
+    return `${pad2(day)}/${pad2(month)}/${year}`;
+  }
+
+  function isValidDateParts(year, month, day) {
+    return (
+      Number.isInteger(year) &&
+      Number.isInteger(month) &&
+      Number.isInteger(day) &&
+      year >= 2000 &&
+      year <= 2100 &&
+      month >= 1 &&
+      month <= 12 &&
+      day >= 1 &&
+      day <= 31
+    );
+  }
+
+  function pad2(value) {
+    return String(value).padStart(2, "0");
   }
 
   function normalizeTitle(text) {
@@ -711,6 +829,7 @@
     return [
       chapter.title,
       chapter.bookName,
+      chapter.editedDateLabel,
       chapter.wordCount,
       chapter.paragraphs.length,
       chapter.contentFontFamily,
@@ -857,7 +976,8 @@
     applySourceVisibility();
 
     state.root.className = "";
-    state.root.dataset.theme = state.settings.theme;
+    state.root.dataset.theme = resolveTheme(state.settings.theme);
+    state.root.dataset.themeChoice = state.settings.theme;
     state.root.style.setProperty("--fq-doc-font-size", `${state.settings.fontSize}px`);
     state.root.style.setProperty("--fq-doc-line-height", String(state.settings.lineHeight));
     state.root.style.setProperty(
@@ -866,11 +986,11 @@
     );
     state.root.style.setProperty(
       "--fq-doc-page-width",
-      `${PAGE_WIDTHS[state.settings.pageWidth]}px`,
+      `${A4_PAGE_WIDTH}px`,
     );
     state.root.style.setProperty(
       "--fq-doc-page-height",
-      `${Math.round(PAGE_WIDTHS[state.settings.pageWidth] * A4_RATIO)}px`,
+      `${Math.round(A4_PAGE_WIDTH * A4_RATIO)}px`,
     );
 
     if (!state.settings.enabled) {
@@ -894,6 +1014,13 @@
       onClick: () => updateSettings({ enabled: true }),
     });
     state.root.append(button);
+  }
+
+  function resolveTheme(theme) {
+    if (theme !== "system") {
+      return theme;
+    }
+    return window.matchMedia?.(SYSTEM_DARK_QUERY).matches ? "dark" : "paper";
   }
 
   function renderReader() {
@@ -1032,7 +1159,7 @@
       createButton({
         className: "fq-doc-icon-button",
         title: "关闭文档模式",
-        text: "原网页",
+        text: "返回",
         onClick: () => updateSettings({ enabled: false }),
       }),
       createButton({
@@ -1049,7 +1176,7 @@
         disabled: !state.navigation?.next || state.navigation.next.disabled,
         onClick: () => activateNavigation("next"),
       }),
-      createFileTitle(),
+      createEditedTimeTitle(),
     );
 
     const center = document.createElement("div");
@@ -1091,19 +1218,10 @@
           }),
       }),
       createSegmentedControl({
-        label: "页面",
-        value: state.settings.pageWidth,
-        options: [
-          { value: "narrow", text: "窄" },
-          { value: "normal", text: "标准" },
-          { value: "wide", text: "宽" },
-        ],
-        onChange: (pageWidth) => updateSettings({ pageWidth }),
-      }),
-      createSegmentedControl({
         label: "主题",
         value: state.settings.theme,
         options: [
+          { value: "system", text: "系统" },
           { value: "paper", text: "浅色" },
           { value: "green", text: "护眼" },
           { value: "dark", text: "深色" },
@@ -1194,12 +1312,12 @@
     return status;
   }
 
-  function createFileTitle() {
+  function createEditedTimeTitle() {
     const title = document.createElement("div");
     title.className = "fq-doc-file-title";
-    title.textContent = `${formatDocumentName(state.chapter.bookName)}.pdf`;
+    title.textContent = `最后编辑：${state.chapter.editedDateLabel || "未知"}`;
     title.title = title.textContent;
-    title.setAttribute("aria-label", `文档标题：${title.textContent}`);
+    title.setAttribute("aria-label", title.textContent);
     return title;
   }
 
