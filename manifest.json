@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Fanqie Document Reader",
+  "version": "0.1.0",
+  "description": "将番茄小说阅读页重排为在线文档式阅读界面。",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://fanqienovel.com/reader/*"],
+      "js": ["content.js"],
+      "css": ["reader.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
