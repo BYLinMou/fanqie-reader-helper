@@ -13,7 +13,7 @@
 
   const DEFAULT_SETTINGS = {
     enabled: true,
-    fontSize: 18,
+    fontSize: 16,
     lineHeight: 1.85,
     pageWidth: "normal",
     pageScale: 100,
@@ -27,6 +27,10 @@
   };
   const A4_PAGE_WIDTH = 860;
   const A4_RATIO = 297 / 210;
+  const PAGE_SCALE_MIN = 70;
+  const PAGE_SCALE_MAX = 140;
+  const PAGE_SCALE_STEP = 5;
+  const WHEEL_ZOOM_INTERVAL = 80;
   const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
 
   const SOURCE_SELECTORS = [
@@ -131,6 +135,7 @@
     observer: null,
     refreshTimer: 0,
     progressFrame: 0,
+    lastWheelZoomAt: 0,
     currentPage: 1,
     pageCount: 1,
     lastRenderKey: "",
@@ -198,6 +203,7 @@
     installObservers();
     installStorageListener();
     installSystemThemeListener();
+    installZoomShortcuts();
     refresh("init");
 
     [250, 900, 1800, 3500].forEach((delay) => {
@@ -209,7 +215,12 @@
     const next = { ...DEFAULT_SETTINGS, ...(input || {}) };
     next.enabled = Boolean(next.enabled);
     next.fontSize = clampNumber(next.fontSize, 14, 28, DEFAULT_SETTINGS.fontSize);
-    next.pageScale = clampNumber(next.pageScale, 70, 140, DEFAULT_SETTINGS.pageScale);
+    next.pageScale = clampNumber(
+      next.pageScale,
+      PAGE_SCALE_MIN,
+      PAGE_SCALE_MAX,
+      DEFAULT_SETTINGS.pageScale,
+    );
     next.lineHeight = clampNumber(
       next.lineHeight,
       1.35,
@@ -336,6 +347,74 @@
         render();
       }
     });
+  }
+
+  function installZoomShortcuts() {
+    if (window.__fanqieDocumentReaderZoomShortcuts) {
+      return;
+    }
+    window.__fanqieDocumentReaderZoomShortcuts = true;
+
+    window.addEventListener("keydown", handleZoomKeydown, true);
+    window.addEventListener("wheel", handleZoomWheel, {
+      capture: true,
+      passive: false,
+    });
+  }
+
+  function handleZoomKeydown(event) {
+    if (!shouldHandleDocumentZoom() || !isZoomModifierPressed(event)) {
+      return;
+    }
+
+    const key = event.key;
+    const code = event.code;
+    const zoomIn = key === "+" || key === "=" || code === "NumpadAdd";
+    const zoomOut = key === "-" || key === "_" || code === "NumpadSubtract";
+    const reset = key === "0" || code === "Digit0" || code === "Numpad0";
+
+    if (!zoomIn && !zoomOut && !reset) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (reset) {
+      setPageScale(DEFAULT_SETTINGS.pageScale);
+      return;
+    }
+
+    adjustPageScale(zoomIn ? PAGE_SCALE_STEP : -PAGE_SCALE_STEP);
+  }
+
+  function handleZoomWheel(event) {
+    if (!shouldHandleDocumentZoom() || !event.ctrlKey || !Number.isFinite(event.deltaY)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const now = Date.now();
+    if (now - state.lastWheelZoomAt < WHEEL_ZOOM_INTERVAL) {
+      return;
+    }
+    state.lastWheelZoomAt = now;
+
+    adjustPageScale(event.deltaY < 0 ? PAGE_SCALE_STEP : -PAGE_SCALE_STEP);
+  }
+
+  function shouldHandleDocumentZoom() {
+    return (
+      isReaderPage() &&
+      state.settings.enabled &&
+      state.root?.classList.contains("fq-doc-shell")
+    );
+  }
+
+  function isZoomModifierPressed(event) {
+    return (event.ctrlKey || event.metaKey) && !event.altKey;
   }
 
   function patchHistoryEvents() {
@@ -1399,28 +1478,22 @@
         className: "fq-doc-icon-button fq-doc-scale-button",
         title: "缩小页面",
         text: "−",
-        onClick: () =>
-          updateSettings({
-            pageScale: clampNumber(state.settings.pageScale - 5, 70, 140, 100),
-          }),
+        onClick: () => adjustPageScale(-PAGE_SCALE_STEP),
       }),
       createNumberInputControl({
         label: "页面缩放",
         value: state.settings.pageScale,
-        min: 70,
-        max: 140,
-        step: 5,
+        min: PAGE_SCALE_MIN,
+        max: PAGE_SCALE_MAX,
+        step: PAGE_SCALE_STEP,
         suffix: "%",
-        onCommit: (pageScale) => updateSettings({ pageScale }),
+        onCommit: (pageScale) => setPageScale(pageScale),
       }),
       createButton({
         className: "fq-doc-icon-button fq-doc-scale-button",
         title: "放大页面",
         text: "+",
-        onClick: () =>
-          updateSettings({
-            pageScale: clampNumber(state.settings.pageScale + 5, 70, 140, 100),
-          }),
+        onClick: () => adjustPageScale(PAGE_SCALE_STEP),
       }),
     );
     return group;
@@ -1547,6 +1620,23 @@
       }
     });
     return button;
+  }
+
+  function adjustPageScale(delta) {
+    setPageScale(state.settings.pageScale + delta);
+  }
+
+  function setPageScale(pageScale) {
+    const nextScale = clampNumber(
+      pageScale,
+      PAGE_SCALE_MIN,
+      PAGE_SCALE_MAX,
+      DEFAULT_SETTINGS.pageScale,
+    );
+    if (nextScale === state.settings.pageScale) {
+      return;
+    }
+    updateSettings({ pageScale: nextScale });
   }
 
   async function updateSettings(partial) {
