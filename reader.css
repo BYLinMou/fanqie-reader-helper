@@ -112,6 +112,21 @@ body.fq-doc-reader-active {
   gap: 6px;
 }
 
+.fq-doc-file-title {
+  min-width: 0;
+  max-width: min(34vw, 420px);
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--fq-doc-toolbar-border);
+  color: var(--fq-doc-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 32px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .fq-doc-toolbar-controls {
   justify-content: center;
   gap: 12px;
@@ -369,6 +384,10 @@ body.fq-doc-reader-active {
   .fq-doc-toolbar-group {
     justify-content: center;
     flex-wrap: wrap;
+  }
+
+  .fq-doc-file-title {
+    max-width: min(80vw, 420px);
   }
 
   .fq-doc-toolbar-status {

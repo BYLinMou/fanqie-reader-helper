@@ -55,6 +55,17 @@
     "h2",
   ];
 
+  const BOOK_TITLE_SELECTORS = [
+    ".muye-reader-nav-title",
+    ".reader-nav-title",
+    ".book-title",
+    "[class*='muye-reader-nav-title']",
+    "[class*='reader-nav-title']",
+    "[class*='ReaderNavTitle']",
+    "[class*='book-title']",
+    "[class*='BookTitle']",
+  ];
+
   const BLOCK_SELECTOR =
     "p, div, section, article, main, li, h1, h2, h3, h4, blockquote";
 
@@ -94,6 +105,7 @@
     settings: { ...DEFAULT_SETTINGS },
     chapter: {
       title: "正在等待正文",
+      bookName: "",
       paragraphs: [],
       wordCount: 0,
       contentFontFamily: "",
@@ -329,6 +341,7 @@
     }
 
     const title = findTitle(source);
+    const bookName = findBookName(title);
     const paragraphs = source ? collectParagraphs(source, title) : [];
     const wordCount = countReadableCharacters(paragraphs.join(""));
     const contentFontFamily = getContentFontFamily(source);
@@ -336,6 +349,7 @@
 
     return {
       title: title || "正在等待正文",
+      bookName,
       paragraphs,
       wordCount,
       contentFontFamily,
@@ -459,7 +473,58 @@
       .replace(/[_\-|｜].*?番茄小说.*$/i, "")
       .replace(/番茄小说.*$/i, "")
       .replace(/免费阅读.*$/i, "")
+      .replace(/^(第[一二三四五六七八九十百千万两\d]+章)\s*(?=\S)/, "$1 ")
       .trim();
+  }
+
+  function findBookName(chapterTitle) {
+    const candidates = [];
+
+    BOOK_TITLE_SELECTORS.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((element) => {
+        if (state.root && state.root.contains(element)) {
+          return;
+        }
+
+        const text = normalizeBookName(readElementText(element), chapterTitle);
+        if (isLikelyBookName(text)) {
+          candidates.push(text);
+        }
+      });
+    });
+
+    const titleCandidate = normalizeBookName(document.title || "", chapterTitle);
+    if (isLikelyBookName(titleCandidate)) {
+      candidates.push(titleCandidate);
+    }
+
+    return candidates.sort((a, b) => b.length - a.length)[0] || "番茄小说";
+  }
+
+  function normalizeBookName(text, chapterTitle) {
+    let cleaned = cleanText(text)
+      .replace(/在线免费阅读.*$/i, "")
+      .replace(/番茄小说官网.*$/i, "")
+      .replace(/番茄小说.*$/i, "")
+      .replace(/免费阅读.*$/i, "")
+      .replace(/^返回\s*/, "")
+      .trim();
+
+    if (chapterTitle) {
+      cleaned = cleaned.replace(chapterTitle, "").trim();
+      cleaned = cleaned.replace(chapterTitle.replace(/\s+/g, ""), "").trim();
+    }
+
+    cleaned = cleaned
+      .replace(/第[一二三四五六七八九十百千万两\d]+章.*$/i, "")
+      .replace(/[_\-|｜]+$/g, "")
+      .trim();
+
+    return cleaned;
+  }
+
+  function isLikelyBookName(text) {
+    return Boolean(text && text.length >= 2 && text.length <= 80 && !NAV_TEXT_RE.test(text));
   }
 
   function collectParagraphs(source, title) {
@@ -611,6 +676,7 @@
   function createFingerprint(chapter) {
     return [
       chapter.title,
+      chapter.bookName,
       chapter.wordCount,
       chapter.paragraphs.length,
       chapter.contentFontFamily,
@@ -855,6 +921,7 @@
         disabled: !state.navigation?.next || state.navigation.next.disabled,
         onClick: () => activateNavigation("next"),
       }),
+      createFileTitle(),
     );
 
     const center = document.createElement("div");
@@ -997,6 +1064,22 @@
     status.setAttribute("aria-live", "polite");
     status.textContent = buildStatusText(0);
     return status;
+  }
+
+  function createFileTitle() {
+    const title = document.createElement("div");
+    title.className = "fq-doc-file-title";
+    title.textContent = `${formatDocumentName(state.chapter.bookName)}.pdf`;
+    title.title = title.textContent;
+    title.setAttribute("aria-label", `文档标题：${title.textContent}`);
+    return title;
+  }
+
+  function formatDocumentName(bookName) {
+    return cleanText(bookName || "番茄小说")
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\.+$/g, "")
+      .trim() || "番茄小说";
   }
 
   function buildStatusText(progress) {
