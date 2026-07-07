@@ -24,6 +24,7 @@
     normal: 860,
     wide: 1040,
   };
+  const A4_RATIO = 297 / 210;
 
   const SOURCE_SELECTORS = [
     ".muye-reader-content",
@@ -114,6 +115,7 @@
     observer: null,
     refreshTimer: 0,
     progressFrame: 0,
+    pageCount: 1,
     suppressStorageEvent: false,
   };
 
@@ -825,6 +827,10 @@
       "--fq-doc-page-width",
       `${PAGE_WIDTHS[state.settings.pageWidth]}px`,
     );
+    state.root.style.setProperty(
+      "--fq-doc-page-height",
+      `${Math.round(PAGE_WIDTHS[state.settings.pageWidth] * A4_RATIO)}px`,
+    );
 
     if (!state.settings.enabled) {
       renderCollapsed();
@@ -861,36 +867,113 @@
     scroller.className = "fq-doc-scroller";
     scroller.addEventListener("scroll", scheduleProgressUpdate, { passive: true });
 
+    workspace.append(scroller);
+    state.root.append(toolbar, workspace);
+    renderPaginatedPages(scroller);
+    updateProgress(scroller);
+
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        if (state.root?.contains(scroller)) {
+          renderPaginatedPages(scroller);
+          updateProgress(scroller);
+        }
+      });
+    }
+  }
+
+  function renderPaginatedPages(scroller) {
+    scroller.replaceChildren();
+
+    const contentNodes = createChapterContentNodes();
+    const pages = [];
+    let page = createPageShell(1);
+    let body = page.querySelector(".fq-doc-page-body");
+    pages.push(page);
+    scroller.append(page);
+
+    contentNodes.forEach((node) => {
+      body.append(node);
+
+      if (isPageBodyOverflowing(body) && body.childElementCount > 1) {
+        body.removeChild(node);
+        page = createPageShell(pages.length + 1);
+        body = page.querySelector(".fq-doc-page-body");
+        pages.push(page);
+        scroller.append(page);
+        body.append(node);
+      }
+    });
+
+    state.pageCount = pages.length || 1;
+    pages.forEach((pageNode, index) => {
+      pageNode.dataset.page = String(index + 1);
+      const footer = pageNode.querySelector(".fq-doc-page-foot");
+      if (footer) {
+        footer.textContent = `${index + 1} / ${state.pageCount}`;
+      }
+    });
+  }
+
+  function createPageShell(pageNumber) {
     const page = document.createElement("article");
     page.className = "fq-doc-page";
+
+    const header = document.createElement("header");
+    header.className = "fq-doc-page-head";
+
+    const file = document.createElement("span");
+    file.className = "fq-doc-page-file";
+    file.textContent = `${formatDocumentName(state.chapter.bookName)}.pdf`;
+
+    const chapter = document.createElement("span");
+    chapter.className = "fq-doc-page-chapter";
+    chapter.textContent = pageNumber === 1 ? state.chapter.title : "";
+
+    header.append(file, chapter);
+
+    const body = document.createElement("section");
+    body.className = "fq-doc-page-body";
+
+    const footer = document.createElement("footer");
+    footer.className = "fq-doc-page-foot";
+    footer.textContent = String(pageNumber);
+
+    page.append(header, body, footer);
+    return page;
+  }
+
+  function createChapterContentNodes() {
+    const nodes = [];
 
     const heading = document.createElement("h1");
     heading.className = "fq-doc-title";
     heading.textContent = state.chapter.title;
-    page.append(heading);
+    nodes.push(heading);
 
     const rule = document.createElement("div");
     rule.className = "fq-doc-title-rule";
-    page.append(rule);
+    nodes.push(rule);
 
     if (state.chapter.paragraphs.length) {
       state.chapter.paragraphs.forEach((paragraph) => {
         const node = document.createElement("p");
         node.className = "fq-doc-paragraph";
         node.textContent = paragraph;
-        page.append(node);
+        nodes.push(node);
       });
     } else {
       const empty = document.createElement("p");
       empty.className = "fq-doc-empty";
       empty.textContent = "正文加载中，稍后会自动重排。";
-      page.append(empty);
+      nodes.push(empty);
     }
 
-    scroller.append(page);
-    workspace.append(scroller);
-    state.root.append(toolbar, workspace);
-    updateProgress(scroller);
+    return nodes;
+  }
+
+  function isPageBodyOverflowing(body) {
+    return body.scrollHeight > body.clientHeight + 1;
   }
 
   function createToolbar() {
@@ -1062,7 +1145,7 @@
     const status = document.createElement("span");
     status.className = "fq-doc-status";
     status.setAttribute("aria-live", "polite");
-    status.textContent = buildStatusText(0);
+    status.textContent = buildStatusText(0, 1, state.pageCount);
     return status;
   }
 
@@ -1082,11 +1165,11 @@
       .trim() || "番茄小说";
   }
 
-  function buildStatusText(progress) {
+  function buildStatusText(progress, currentPage = 1, totalPages = state.pageCount) {
     const count = state.chapter.wordCount
       ? `${state.chapter.wordCount.toLocaleString("zh-CN")} 字`
       : "等待正文";
-    return `${count} · ${Math.round(progress)}%`;
+    return `${count} · ${currentPage}/${Math.max(1, totalPages)} 页 · ${Math.round(progress)}%`;
   }
 
   function createButton({ className, title, text, disabled, pressed, onClick }) {
@@ -1150,8 +1233,12 @@
       return;
     }
 
+    const pages = Array.from(scroller.querySelectorAll(".fq-doc-page"));
+    const marker = scroller.scrollTop + 12;
+    const currentPage =
+      pages.findIndex((page) => page.offsetTop + page.offsetHeight > marker) + 1 || 1;
     const maxScroll = Math.max(1, scroller.scrollHeight - scroller.clientHeight);
     const progress = Math.min(100, Math.max(0, (scroller.scrollTop / maxScroll) * 100));
-    status.textContent = buildStatusText(progress);
+    status.textContent = buildStatusText(progress, currentPage, pages.length || state.pageCount);
   }
 })();

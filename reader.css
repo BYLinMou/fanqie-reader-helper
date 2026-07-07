@@ -2,6 +2,7 @@
   --fq-doc-font-size: 18px;
   --fq-doc-line-height: 1.85;
   --fq-doc-page-width: 860px;
+  --fq-doc-page-height: 1216px;
   --fq-doc-content-font-family: serif;
   --fq-doc-workspace: #eceff3;
   --fq-doc-page: #ffffff;
@@ -149,6 +150,10 @@ body.fq-doc-reader-active {
 }
 
 .fq-doc-scroller {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
   height: 100%;
   overflow: auto;
   padding: 34px 28px 64px;
@@ -157,9 +162,10 @@ body.fq-doc-reader-active {
 
 .fq-doc-page {
   width: min(var(--fq-doc-page-width), calc(100vw - 72px));
-  min-height: calc(100vh - 168px);
+  flex: 0 0 var(--fq-doc-page-height);
+  height: var(--fq-doc-page-height);
   margin: 0 auto;
-  padding: 68px 76px 88px;
+  padding: 24px 64px 18px;
   color: var(--fq-doc-text);
   background:
     linear-gradient(90deg, transparent 0, transparent 44px, color-mix(in srgb, var(--fq-doc-accent), transparent 82%) 45px, transparent 46px),
@@ -168,6 +174,53 @@ body.fq-doc-reader-active {
   border-radius: 2px;
   box-shadow: var(--fq-doc-shadow);
   box-sizing: border-box;
+  display: grid;
+  grid-template-rows: 24px minmax(0, 1fr) 24px;
+  overflow: hidden;
+}
+
+.fq-doc-page-head,
+.fq-doc-page-foot {
+  display: flex;
+  align-items: center;
+  color: color-mix(in srgb, var(--fq-doc-text), transparent 16%);
+  font-family:
+    "Inter",
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.fq-doc-page-head {
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.fq-doc-page-file,
+.fq-doc-page-chapter {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fq-doc-page-chapter {
+  text-align: right;
+}
+
+.fq-doc-page-body {
+  min-height: 0;
+  overflow: hidden;
+  padding: 48px 0 24px;
+}
+
+.fq-doc-page-foot {
+  justify-content: center;
+  font-weight: 500;
 }
 
 .fq-doc-title {
@@ -400,7 +453,11 @@ body.fq-doc-reader-active {
 
   .fq-doc-page {
     width: min(var(--fq-doc-page-width), calc(100vw - 24px));
-    padding: 44px 30px 60px;
+    padding: 20px 30px 16px;
+  }
+
+  .fq-doc-page-body {
+    padding: 36px 0 20px;
   }
 }
 
@@ -424,7 +481,11 @@ body.fq-doc-reader-active {
   }
 
   .fq-doc-page {
-    padding: 36px 20px 52px;
+    padding: 18px 20px 14px;
+  }
+
+  .fq-doc-page-body {
+    padding: 28px 0 18px;
   }
 
   .fq-doc-title {
