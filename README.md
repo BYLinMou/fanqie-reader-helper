@@ -14,6 +14,12 @@
 - 支援淺色、護眼綠、深色與跟隨系統主題
 - 使用瀏覽器本地儲存保存閱讀設定
 
+## Entry Point
+
+After installing the extension, open a Fanqie Novel reader page and click the `文档模式` button in the top-left corner to switch into the document-style reader.
+
+![Entry point](demo/original-light.png)
+
 ## Screenshots
 
 ![Light theme](demo/light.png)
