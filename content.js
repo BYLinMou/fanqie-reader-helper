@@ -16,6 +16,7 @@
     fontSize: 18,
     lineHeight: 1.85,
     pageWidth: "normal",
+    pageScale: 100,
     theme: "system",
   };
 
@@ -130,6 +131,7 @@
     observer: null,
     refreshTimer: 0,
     progressFrame: 0,
+    currentPage: 1,
     pageCount: 1,
     lastRenderKey: "",
     suppressStorageEvent: false,
@@ -207,6 +209,7 @@
     const next = { ...DEFAULT_SETTINGS, ...(input || {}) };
     next.enabled = Boolean(next.enabled);
     next.fontSize = clampNumber(next.fontSize, 14, 28, DEFAULT_SETTINGS.fontSize);
+    next.pageScale = clampNumber(next.pageScale, 70, 140, DEFAULT_SETTINGS.pageScale);
     next.lineHeight = clampNumber(
       next.lineHeight,
       1.35,
@@ -995,11 +998,11 @@
     );
     state.root.style.setProperty(
       "--fq-doc-page-width",
-      `${A4_PAGE_WIDTH}px`,
+      `${Math.round(A4_PAGE_WIDTH * (state.settings.pageScale / 100))}px`,
     );
     state.root.style.setProperty(
       "--fq-doc-page-height",
-      `${Math.round(A4_PAGE_WIDTH * A4_RATIO)}px`,
+      `${Math.round(A4_PAGE_WIDTH * A4_RATIO * (state.settings.pageScale / 100))}px`,
     );
 
     if (!state.settings.enabled) {
@@ -1094,6 +1097,7 @@
         footer.textContent = `${index + 1} / ${state.pageCount}`;
       }
     });
+    updatePageCounter(state.currentPage, state.pageCount);
   }
 
   function createPageShell(pageNumber) {
@@ -1171,20 +1175,6 @@
         text: "返回",
         onClick: () => updateSettings({ enabled: false }),
       }),
-      createButton({
-        className: "fq-doc-icon-button",
-        title: "上一章",
-        text: "←",
-        disabled: !state.navigation?.prev || state.navigation.prev.disabled,
-        onClick: () => activateNavigation("prev"),
-      }),
-      createButton({
-        className: "fq-doc-icon-button",
-        title: "下一章",
-        text: "→",
-        disabled: !state.navigation?.next || state.navigation.next.disabled,
-        onClick: () => activateNavigation("next"),
-      }),
       createEditedTimeTitle(),
     );
 
@@ -1192,51 +1182,22 @@
     center.className = "fq-doc-toolbar-group fq-doc-toolbar-controls";
 
     center.append(
-      createStepper({
+      createPageCounter(),
+      createToolbarDivider(),
+      createScaleControl(),
+      createToolbarDivider(),
+      createNumberInputControl({
         label: "字号",
-        minusTitle: "减小字号",
-        plusTitle: "增大字号",
-        valueText: `${state.settings.fontSize}px`,
-        onMinus: () =>
-          updateSettings({
-            fontSize: clampNumber(state.settings.fontSize - 1, 14, 28, 18),
-          }),
-        onPlus: () =>
-          updateSettings({
-            fontSize: clampNumber(state.settings.fontSize + 1, 14, 28, 18),
-          }),
+        prefix: "字号",
+        value: state.settings.fontSize,
+        min: 14,
+        max: 28,
+        step: 1,
+        suffix: "px",
+        onCommit: (fontSize) => updateSettings({ fontSize }),
       }),
-      createStepper({
-        label: "行距",
-        minusTitle: "减小行距",
-        plusTitle: "增大行距",
-        valueText: state.settings.lineHeight.toFixed(2),
-        onMinus: () =>
-          updateSettings({
-            lineHeight: roundTo(
-              clampNumber(state.settings.lineHeight - 0.05, 1.35, 2.4, 1.85),
-              2,
-            ),
-          }),
-        onPlus: () =>
-          updateSettings({
-            lineHeight: roundTo(
-              clampNumber(state.settings.lineHeight + 0.05, 1.35, 2.4, 1.85),
-              2,
-            ),
-          }),
-      }),
-      createSegmentedControl({
-        label: "主题",
-        value: state.settings.theme,
-        options: [
-          { value: "system", text: "系统" },
-          { value: "paper", text: "浅色" },
-          { value: "green", text: "护眼" },
-          { value: "dark", text: "深色" },
-        ],
-        onChange: (theme) => updateSettings({ theme }),
-      }),
+      createToolbarDivider(),
+      createChapterNavControls(),
     );
 
     const right = document.createElement("div");
@@ -1313,6 +1274,158 @@
     return value;
   }
 
+  function createPageCounter() {
+    const counter = document.createElement("span");
+    counter.className = "fq-doc-page-counter";
+
+    const input = document.createElement("input");
+    input.className = "fq-doc-page-input";
+    input.type = "number";
+    input.inputMode = "numeric";
+    input.min = "1";
+    input.max = String(Math.max(1, state.pageCount));
+    input.step = "1";
+    input.value = String(state.currentPage);
+    input.setAttribute("aria-label", "页码");
+
+    const total = document.createElement("span");
+    total.className = "fq-doc-page-total";
+    total.textContent = `/ ${Math.max(1, state.pageCount)}`;
+
+    const commit = () => {
+      const page = Math.round(clampNumber(input.value, 1, Math.max(1, state.pageCount), state.currentPage));
+      input.value = String(page);
+      scrollToPage(page);
+    };
+
+    input.addEventListener("change", commit);
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+      }
+    });
+
+    counter.append(input, total);
+    return counter;
+  }
+
+  function createToolbarDivider() {
+    const divider = document.createElement("span");
+    divider.className = "fq-doc-toolbar-divider";
+    divider.setAttribute("aria-hidden", "true");
+    return divider;
+  }
+
+  function createNumberInputControl({ label, prefix, value, min, max, step, suffix, onCommit }) {
+    const group = document.createElement("label");
+    group.className = "fq-doc-number-control";
+    group.title = label;
+    group.setAttribute("aria-label", label);
+
+    if (prefix) {
+      const prefixNode = document.createElement("span");
+      prefixNode.className = "fq-doc-number-prefix";
+      prefixNode.textContent = prefix;
+      group.append(prefixNode);
+    }
+
+    const input = document.createElement("input");
+    input.className = "fq-doc-number-input";
+    input.type = "number";
+    input.inputMode = "numeric";
+    input.min = String(min);
+    input.max = String(max);
+    input.step = String(step);
+    input.value = String(value);
+    input.setAttribute("aria-label", label);
+
+    const commit = () => {
+      const nextValue = clampNumber(input.value, min, max, value);
+      input.value = String(nextValue);
+      if (nextValue !== value) {
+        onCommit(nextValue);
+      }
+    };
+
+    input.addEventListener("change", commit);
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+      }
+    });
+
+    group.append(input);
+    if (suffix) {
+      const suffixNode = document.createElement("span");
+      suffixNode.className = "fq-doc-number-suffix";
+      suffixNode.textContent = suffix;
+      group.append(suffixNode);
+    }
+
+    return group;
+  }
+
+  function createScaleControl() {
+    const group = document.createElement("span");
+    group.className = "fq-doc-scale-control";
+    group.append(
+      createButton({
+        className: "fq-doc-icon-button fq-doc-scale-button",
+        title: "缩小页面",
+        text: "−",
+        onClick: () =>
+          updateSettings({
+            pageScale: clampNumber(state.settings.pageScale - 5, 70, 140, 100),
+          }),
+      }),
+      createNumberInputControl({
+        label: "页面缩放",
+        value: state.settings.pageScale,
+        min: 70,
+        max: 140,
+        step: 5,
+        suffix: "%",
+        onCommit: (pageScale) => updateSettings({ pageScale }),
+      }),
+      createButton({
+        className: "fq-doc-icon-button fq-doc-scale-button",
+        title: "放大页面",
+        text: "+",
+        onClick: () =>
+          updateSettings({
+            pageScale: clampNumber(state.settings.pageScale + 5, 70, 140, 100),
+          }),
+      }),
+    );
+    return group;
+  }
+
+  function createChapterNavControls() {
+    const group = document.createElement("span");
+    group.className = "fq-doc-chapter-nav";
+    group.append(
+      createButton({
+        className: "fq-doc-icon-button fq-doc-nav-button",
+        title: "上一章",
+        text: "←",
+        disabled: !state.navigation?.prev || state.navigation.prev.disabled,
+        onClick: () => activateNavigation("prev"),
+      }),
+      createButton({
+        className: "fq-doc-icon-button fq-doc-nav-button",
+        title: "下一章",
+        text: "→",
+        disabled: !state.navigation?.next || state.navigation.next.disabled,
+        onClick: () => activateNavigation("next"),
+      }),
+    );
+    return group;
+  }
+
   function createStatus() {
     const status = document.createElement("span");
     status.className = "fq-doc-status";
@@ -1341,7 +1454,7 @@
     const count = state.chapter.wordCount
       ? `${state.chapter.wordCount.toLocaleString("zh-CN")} 字`
       : "等待正文";
-    return `${count} · ${currentPage}/${Math.max(1, totalPages)} 页 · ${Math.round(progress)}%`;
+    return `${count} · ${Math.round(progress)}%`;
   }
 
   function createButton({ className, title, text, disabled, pressed, onClick }) {
@@ -1400,6 +1513,13 @@
     state.progressFrame = requestAnimationFrame(() => updateProgress(scroller));
   }
 
+  function getPageStartScrollTop(scroller, page) {
+    const header = page.querySelector(".fq-doc-page-head") || page;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const headerRect = header.getBoundingClientRect();
+    return scroller.scrollTop + headerRect.top - scrollerRect.top;
+  }
+
   function updateProgress(scroller) {
     const status = state.root?.querySelector(".fq-doc-status");
     if (!status || !scroller) {
@@ -1407,11 +1527,49 @@
     }
 
     const pages = Array.from(scroller.querySelectorAll(".fq-doc-page"));
-    const marker = scroller.scrollTop + 12;
-    const currentPage =
-      pages.findIndex((page) => page.offsetTop + page.offsetHeight > marker) + 1 || 1;
+    const marker = scroller.scrollTop + 8;
+    let currentPage = 1;
+    pages.forEach((page, index) => {
+      if (getPageStartScrollTop(scroller, page) <= marker) {
+        currentPage = index + 1;
+      }
+    });
+    state.currentPage = currentPage;
+    state.pageCount = pages.length || state.pageCount;
+    updatePageCounter(currentPage, pages.length || state.pageCount);
     const maxScroll = Math.max(1, scroller.scrollHeight - scroller.clientHeight);
     const progress = Math.min(100, Math.max(0, (scroller.scrollTop / maxScroll) * 100));
     status.textContent = buildStatusText(progress, currentPage, pages.length || state.pageCount);
+  }
+
+  function updatePageCounter(currentPage, totalPages) {
+    const counter = state.root?.querySelector(".fq-doc-page-counter");
+    if (!counter) {
+      return;
+    }
+    const input = counter.querySelector(".fq-doc-page-input");
+    const total = counter.querySelector(".fq-doc-page-total");
+    if (input instanceof HTMLInputElement) {
+      input.max = String(Math.max(1, totalPages));
+      if (document.activeElement !== input) {
+        input.value = String(currentPage);
+      }
+    }
+    if (total) {
+      total.textContent = `/ ${Math.max(1, totalPages)}`;
+    }
+  }
+
+  function scrollToPage(pageNumber) {
+    const scroller = state.root?.querySelector(".fq-doc-scroller");
+    const pages = Array.from(state.root?.querySelectorAll(".fq-doc-page") || []);
+    const page = pages[pageNumber - 1];
+    if (!scroller || !page) {
+      return;
+    }
+    scroller.scrollTo({
+      top: Math.max(0, getPageStartScrollTop(scroller, page)),
+      behavior: "smooth",
+    });
   }
 })();

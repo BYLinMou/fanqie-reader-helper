@@ -82,6 +82,7 @@ body.fq-doc-reader-active {
 }
 
 .fq-doc-toolbar {
+  position: relative;
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
@@ -111,6 +112,7 @@ body.fq-doc-reader-active {
 
 .fq-doc-toolbar-primary {
   gap: 6px;
+  justify-self: start;
 }
 
 .fq-doc-file-title {
@@ -129,13 +131,22 @@ body.fq-doc-reader-active {
 }
 
 .fq-doc-toolbar-controls {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
   justify-content: center;
-  gap: 12px;
-  overflow: hidden;
+  gap: 10px;
+  width: max-content;
+  max-width: min(72vw, 720px);
+  padding: 0 8px;
+  overflow: visible;
+  transform: translate(-50%, -50%);
 }
 
 .fq-doc-toolbar-status {
   justify-content: flex-end;
+  justify-self: end;
   min-width: 112px;
 }
 
@@ -369,6 +380,139 @@ body.fq-doc-reader-active {
   white-space: nowrap;
 }
 
+.fq-doc-page-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 62px;
+  color: var(--fq-doc-text);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 28px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.fq-doc-page-input {
+  width: 30px;
+  height: 26px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 2px;
+  color: var(--fq-doc-text);
+  background: color-mix(in srgb, var(--fq-doc-control), #000 10%);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 26px;
+  text-align: center;
+  outline: none;
+  appearance: textfield;
+}
+
+.fq-doc-page-input::-webkit-outer-spin-button,
+.fq-doc-page-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.fq-doc-page-input:focus {
+  background: var(--fq-doc-control);
+  outline: 1px solid var(--fq-doc-accent);
+}
+
+.fq-doc-page-total {
+  line-height: 28px;
+}
+
+.fq-doc-toolbar-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--fq-doc-toolbar-border);
+}
+
+.fq-doc-scale-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fq-doc-scale-button {
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 15px;
+}
+
+.fq-doc-number-control {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  min-width: 0;
+  background: color-mix(in srgb, var(--fq-doc-control), #000 8%);
+  border: 1px solid var(--fq-doc-toolbar-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.fq-doc-number-input {
+  width: 48px;
+  height: 26px;
+  padding: 0 4px;
+  border: 0;
+  color: var(--fq-doc-text);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 26px;
+  text-align: center;
+  outline: none;
+  appearance: textfield;
+}
+
+.fq-doc-number-input::-webkit-outer-spin-button,
+.fq-doc-number-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.fq-doc-number-input:focus {
+  background: var(--fq-doc-control);
+}
+
+.fq-doc-number-prefix {
+  padding: 0 0 0 7px;
+  color: var(--fq-doc-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 26px;
+  white-space: nowrap;
+}
+
+.fq-doc-number-suffix {
+  padding: 0 7px 0 0;
+  color: var(--fq-doc-text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 26px;
+}
+
+.fq-doc-chapter-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fq-doc-nav-button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
 .fq-doc-segmented {
   display: inline-flex;
   align-items: center;
@@ -435,6 +579,13 @@ body.fq-doc-reader-active {
   .fq-doc-toolbar-group {
     justify-content: center;
     flex-wrap: wrap;
+  }
+
+  .fq-doc-toolbar-controls {
+    position: static;
+    width: auto;
+    max-width: 100%;
+    transform: none;
   }
 
   .fq-doc-file-title {
