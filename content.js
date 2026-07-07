@@ -983,8 +983,10 @@
     return null;
   }
 
-  function render() {
+  function render(positionToRestore = null) {
     ensureRoot();
+    const previousPosition =
+      positionToRestore || capturePagePosition(state.root.querySelector(".fq-doc-scroller"));
     applySourceVisibility();
 
     state.root.className = "";
@@ -998,11 +1000,25 @@
     );
     state.root.style.setProperty(
       "--fq-doc-page-width",
-      `${Math.round(A4_PAGE_WIDTH * (state.settings.pageScale / 100))}px`,
+      `${A4_PAGE_WIDTH}px`,
     );
+    const pageHeight = Math.round(A4_PAGE_WIDTH * A4_RATIO);
+    const pageScale = state.settings.pageScale / 100;
     state.root.style.setProperty(
       "--fq-doc-page-height",
-      `${Math.round(A4_PAGE_WIDTH * A4_RATIO * (state.settings.pageScale / 100))}px`,
+      `${pageHeight}px`,
+    );
+    state.root.style.setProperty(
+      "--fq-doc-page-frame-width",
+      `${Math.round(A4_PAGE_WIDTH * pageScale)}px`,
+    );
+    state.root.style.setProperty(
+      "--fq-doc-page-frame-height",
+      `${Math.round(pageHeight * pageScale)}px`,
+    );
+    state.root.style.setProperty(
+      "--fq-doc-page-scale",
+      String(roundTo(pageScale, 2)),
     );
 
     if (!state.settings.enabled) {
@@ -1012,7 +1028,7 @@
     }
 
     document.body?.classList.add(BODY_ACTIVE_CLASS);
-    renderReader();
+    renderReader(previousPosition);
   }
 
   function renderCollapsed() {
@@ -1035,8 +1051,7 @@
     return window.matchMedia?.(SYSTEM_DARK_QUERY).matches ? "dark" : "paper";
   }
 
-  function renderReader() {
-    const previousScrollTop = state.root.querySelector(".fq-doc-scroller")?.scrollTop || 0;
+  function renderReader(previousPosition) {
     state.root.replaceChildren();
     state.root.classList.add("fq-doc-shell");
 
@@ -1051,15 +1066,15 @@
     workspace.append(scroller);
     state.root.append(toolbar, workspace);
     renderPaginatedPages(scroller);
-    scroller.scrollTop = previousScrollTop;
+    restorePagePosition(scroller, previousPosition);
     updateProgress(scroller);
 
     if (document.fonts?.ready) {
       document.fonts.ready.then(() => {
         if (state.root?.contains(scroller)) {
-          const scrollTop = scroller.scrollTop;
+          const fontReadyPosition = capturePagePosition(scroller);
           renderPaginatedPages(scroller);
-          scroller.scrollTop = scrollTop;
+          restorePagePosition(scroller, fontReadyPosition);
           updateProgress(scroller);
         }
       });
@@ -1074,7 +1089,7 @@
     let page = createPageShell(1);
     let body = page.querySelector(".fq-doc-page-body");
     pages.push(page);
-    scroller.append(page);
+    appendPageToScroller(scroller, page);
 
     contentNodes.forEach((node) => {
       body.append(node);
@@ -1084,7 +1099,7 @@
         page = createPageShell(pages.length + 1);
         body = page.querySelector(".fq-doc-page-body");
         pages.push(page);
-        scroller.append(page);
+        appendPageToScroller(scroller, page);
         body.append(node);
       }
     });
@@ -1098,6 +1113,13 @@
       }
     });
     updatePageCounter(state.currentPage, state.pageCount);
+  }
+
+  function appendPageToScroller(scroller, page) {
+    const frame = document.createElement("div");
+    frame.className = "fq-doc-page-frame";
+    frame.append(page);
+    scroller.append(frame);
   }
 
   function createPageShell(pageNumber) {
@@ -1528,10 +1550,11 @@
   }
 
   async function updateSettings(partial) {
+    const positionToRestore = capturePagePosition(state.root?.querySelector(".fq-doc-scroller"));
     state.settings = normalizeSettings({ ...state.settings, ...partial });
     await storage.set(partial);
     state.lastRenderKey = "";
-    render();
+    render(positionToRestore);
   }
 
   function roundTo(value, digits) {
@@ -1558,6 +1581,58 @@
     const scroller = event.currentTarget;
     cancelAnimationFrame(state.progressFrame);
     state.progressFrame = requestAnimationFrame(() => updateProgress(scroller));
+  }
+
+  function capturePagePosition(scroller) {
+    if (!scroller) {
+      return null;
+    }
+
+    const pages = Array.from(scroller.querySelectorAll(".fq-doc-page"));
+    if (!pages.length) {
+      return { page: state.currentPage, offsetRatio: 0 };
+    }
+
+    const marker = scroller.scrollTop + 8;
+    let pageIndex = 0;
+    pages.forEach((page, index) => {
+      if (getPageStartScrollTop(scroller, page) <= marker) {
+        pageIndex = index;
+      }
+    });
+
+    const pageStart = getPageStartScrollTop(scroller, pages[pageIndex]);
+    const nextPageStart = pages[pageIndex + 1]
+      ? getPageStartScrollTop(scroller, pages[pageIndex + 1])
+      : scroller.scrollHeight;
+    const pageSpan = Math.max(1, nextPageStart - pageStart);
+
+    return {
+      page: pageIndex + 1,
+      offsetRatio: Math.min(1, Math.max(0, (scroller.scrollTop - pageStart) / pageSpan)),
+    };
+  }
+
+  function restorePagePosition(scroller, position) {
+    if (!position || !scroller) {
+      scroller.scrollTop = 0;
+      return;
+    }
+
+    const pages = Array.from(scroller.querySelectorAll(".fq-doc-page"));
+    const pageIndex = Math.min(Math.max(1, position.page), pages.length || 1) - 1;
+    const page = pages[pageIndex];
+    if (!page) {
+      scroller.scrollTop = 0;
+      return;
+    }
+
+    const pageStart = getPageStartScrollTop(scroller, page);
+    const nextPageStart = pages[pageIndex + 1]
+      ? getPageStartScrollTop(scroller, pages[pageIndex + 1])
+      : scroller.scrollHeight;
+    const pageSpan = Math.max(1, nextPageStart - pageStart);
+    scroller.scrollTop = Math.max(0, pageStart + pageSpan * position.offsetRatio);
   }
 
   function getPageStartScrollTop(scroller, page) {

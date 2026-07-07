@@ -3,6 +3,9 @@
   --fq-doc-line-height: 1.85;
   --fq-doc-page-width: 860px;
   --fq-doc-page-height: 1216px;
+  --fq-doc-page-frame-width: 860px;
+  --fq-doc-page-frame-height: 1216px;
+  --fq-doc-page-scale: 1;
   --fq-doc-content-font-family: serif;
   --fq-doc-workspace: #eceff3;
   --fq-doc-page: #ffffff;
@@ -70,7 +73,7 @@ body.fq-doc-reader-active {
   inset: 0;
   z-index: 2147483647;
   display: grid;
-  grid-template-rows: 48px minmax(0, 1fr);
+  grid-template-rows: 56px minmax(0, 1fr);
   background: var(--fq-doc-workspace);
 }
 
@@ -88,18 +91,9 @@ body.fq-doc-reader-active {
   align-items: center;
   gap: 14px;
   min-width: 0;
-  height: 48px;
-  padding: 0 14px;
-  background:
-    linear-gradient(var(--fq-doc-toolbar), var(--fq-doc-toolbar)) padding-box,
-    repeating-linear-gradient(
-        90deg,
-        transparent 0,
-        transparent 18px,
-        color-mix(in srgb, var(--fq-doc-toolbar-border), transparent 25%) 18px,
-        color-mix(in srgb, var(--fq-doc-toolbar-border), transparent 25%) 19px
-      )
-      border-box;
+  height: 56px;
+  padding: 0 16px;
+  background: var(--fq-doc-toolbar);
   border-bottom: 1px solid var(--fq-doc-toolbar-border);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset;
 }
@@ -173,15 +167,25 @@ body.fq-doc-reader-active {
   gap: 22px;
   height: 100%;
   overflow: auto;
-  padding: 34px 28px 64px;
+  padding: 24px 28px 64px;
   scrollbar-gutter: stable both-edges;
 }
 
-.fq-doc-page {
-  width: min(var(--fq-doc-page-width), calc(100vw - 72px));
-  flex: 0 0 var(--fq-doc-page-height);
-  height: var(--fq-doc-page-height);
+.fq-doc-page-frame {
+  position: relative;
+  flex: 0 0 var(--fq-doc-page-frame-height);
+  width: var(--fq-doc-page-frame-width);
+  height: var(--fq-doc-page-frame-height);
   margin: 0 auto;
+}
+
+.fq-doc-page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--fq-doc-page-width);
+  height: var(--fq-doc-page-height);
+  margin: 0;
   padding: 24px 64px 18px;
   color: var(--fq-doc-text);
   background: var(--fq-doc-page);
@@ -192,6 +196,8 @@ body.fq-doc-reader-active {
   display: grid;
   grid-template-rows: 24px minmax(0, 1fr) 24px;
   overflow: hidden;
+  transform: scale(var(--fq-doc-page-scale));
+  transform-origin: top left;
 }
 
 .fq-doc-page-head,
@@ -246,7 +252,7 @@ body.fq-doc-reader-active {
     "Songti SC",
     SimSun,
     serif;
-  font-size: clamp(28px, 4vw, 38px);
+  font-size: 34px;
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: 0;
@@ -651,15 +657,6 @@ button.fq-doc-action-button:focus-visible {
   .fq-doc-scroller {
     padding: 18px 12px 42px;
   }
-
-  .fq-doc-page {
-    width: min(var(--fq-doc-page-width), calc(100vw - 24px));
-    padding: 20px 30px 16px;
-  }
-
-  .fq-doc-page-body {
-    padding: 36px 0 20px;
-  }
 }
 
 @media (max-width: 620px) {
@@ -679,18 +676,6 @@ button.fq-doc-action-button:focus-visible {
   .fq-doc-segment {
     min-width: 36px;
     padding: 0 7px;
-  }
-
-  .fq-doc-page {
-    padding: 18px 20px 14px;
-  }
-
-  .fq-doc-page-body {
-    padding: 28px 0 18px;
-  }
-
-  .fq-doc-title {
-    font-size: 26px;
   }
 }
 
