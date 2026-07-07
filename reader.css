@@ -167,9 +167,7 @@ body.fq-doc-reader-active {
   margin: 0 auto;
   padding: 24px 64px 18px;
   color: var(--fq-doc-text);
-  background:
-    linear-gradient(90deg, transparent 0, transparent 44px, color-mix(in srgb, var(--fq-doc-accent), transparent 82%) 45px, transparent 46px),
-    var(--fq-doc-page);
+  background: var(--fq-doc-page);
   border: 1px solid var(--fq-doc-page-border);
   border-radius: 2px;
   box-shadow: var(--fq-doc-shadow);

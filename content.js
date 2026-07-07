@@ -116,6 +116,7 @@
     refreshTimer: 0,
     progressFrame: 0,
     pageCount: 1,
+    lastRenderKey: "",
     suppressStorageEvent: false,
   };
 
@@ -243,6 +244,31 @@
         return;
       }
 
+      const hasRelevantChange = mutations.some((mutation) => {
+        const target = mutation.target;
+        if (!(target instanceof Node)) {
+          return false;
+        }
+        if (state.root && (target === state.root || state.root.contains(target))) {
+          return false;
+        }
+        if (state.source && (target === state.source || state.source.contains(target))) {
+          return true;
+        }
+        return Array.from(mutation.addedNodes || []).some(
+          (node) =>
+            node instanceof HTMLElement &&
+            (SOURCE_SELECTORS.some((selector) => node.matches?.(selector)) ||
+              TITLE_SELECTORS.some((selector) => node.matches?.(selector)) ||
+              node.querySelector?.(SOURCE_SELECTORS.join(",")) ||
+              node.querySelector?.(TITLE_SELECTORS.join(","))),
+        );
+      });
+
+      if (!hasRelevantChange) {
+        return;
+      }
+
       scheduleRefresh();
     });
 
@@ -315,6 +341,9 @@
     const extracted = extractChapter();
     const fingerprint = createFingerprint(extracted);
     const navigation = findNavigation();
+    const navigationFingerprint = createNavigationFingerprint(navigation);
+    const renderKey = `${fingerprint}::${navigationFingerprint}::${state.settings.enabled}`;
+    const shouldRender = renderKey !== state.lastRenderKey || reason === "init";
 
     if (fingerprint !== state.fingerprint || reason === "init") {
       state.chapter = extracted;
@@ -322,7 +351,10 @@
     }
 
     state.navigation = navigation;
-    render();
+    if (shouldRender) {
+      state.lastRenderKey = renderKey;
+      render();
+    }
   }
 
   function isReaderPage() {
@@ -687,6 +719,15 @@
     ].join("::");
   }
 
+  function createNavigationFingerprint(navigation) {
+    return [
+      navigation?.prev?.href || "",
+      navigation?.prev?.disabled ? "prev-disabled" : "prev-enabled",
+      navigation?.next?.href || "",
+      navigation?.next?.disabled ? "next-disabled" : "next-enabled",
+    ].join("|");
+  }
+
   function getContentFontFamily(source) {
     if (!(source instanceof HTMLElement)) {
       return "";
@@ -856,6 +897,7 @@
   }
 
   function renderReader() {
+    const previousScrollTop = state.root.querySelector(".fq-doc-scroller")?.scrollTop || 0;
     state.root.replaceChildren();
     state.root.classList.add("fq-doc-shell");
 
@@ -870,12 +912,15 @@
     workspace.append(scroller);
     state.root.append(toolbar, workspace);
     renderPaginatedPages(scroller);
+    scroller.scrollTop = previousScrollTop;
     updateProgress(scroller);
 
     if (document.fonts?.ready) {
       document.fonts.ready.then(() => {
         if (state.root?.contains(scroller)) {
+          const scrollTop = scroller.scrollTop;
           renderPaginatedPages(scroller);
+          scroller.scrollTop = scrollTop;
           updateProgress(scroller);
         }
       });
@@ -928,7 +973,7 @@
 
     const chapter = document.createElement("span");
     chapter.className = "fq-doc-page-chapter";
-    chapter.textContent = pageNumber === 1 ? state.chapter.title : "";
+    chapter.textContent = state.chapter.title;
 
     header.append(file, chapter);
 
@@ -1198,6 +1243,7 @@
   async function updateSettings(partial) {
     state.settings = normalizeSettings({ ...state.settings, ...partial });
     await storage.set(partial);
+    state.lastRenderKey = "";
     render();
   }
 
