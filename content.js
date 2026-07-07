@@ -140,6 +140,8 @@
     pageCount: 1,
     lastRenderKey: "",
     suppressStorageEvent: false,
+    moreMenuOpen: false,
+    moreMenuCleanup: null,
   };
 
   const storage = {
@@ -473,6 +475,8 @@
   }
 
   function teardownForNonReaderPage() {
+    state.moreMenuOpen = false;
+    cleanupMoreMenuDismissHandlers();
     unhideSource();
     document.body?.classList.remove(BODY_ACTIVE_CLASS);
     state.root?.remove();
@@ -1101,6 +1105,8 @@
     );
 
     if (!state.settings.enabled) {
+      state.moreMenuOpen = false;
+      cleanupMoreMenuDismissHandlers();
       renderCollapsed();
       document.body?.classList.remove(BODY_ACTIVE_CLASS);
       return;
@@ -1286,17 +1292,6 @@
       createPageCounter(),
       createToolbarDivider(),
       createScaleControl(),
-      createToolbarDivider(),
-      createNumberInputControl({
-        label: "字号",
-        prefix: "字号",
-        value: state.settings.fontSize,
-        min: 14,
-        max: 28,
-        step: 1,
-        suffix: "px",
-        onCommit: (fontSize) => updateSettings({ fontSize }),
-      }),
       createToolbarDivider(),
       createChapterNavControls(),
     );
@@ -1518,6 +1513,13 @@
         onClick: () => activateNavigation("next"),
       }),
     );
+    const [prevButton, nextButton] = group.querySelectorAll(".fq-doc-nav-button");
+    if (prevButton) {
+      prevButton.innerHTML = getToolbarIconSvg("chapterPrev");
+    }
+    if (nextButton) {
+      nextButton.innerHTML = getToolbarIconSvg("chapterNext");
+    }
     return group;
   }
 
@@ -1535,9 +1537,101 @@
     actions.append(
       createStaticToolbarIcon({ title: "下载", icon: "download" }),
       createToolbarActionButton({ title: "打印", icon: "print", onClick: () => window.print() }),
-      createStaticToolbarIcon({ title: "更多", icon: "more" }),
+      createMoreMenu(),
     );
     return actions;
+  }
+
+  function createMoreMenu() {
+    const details = document.createElement("details");
+    details.className = "fq-doc-more-menu";
+
+    const summary = document.createElement("summary");
+    summary.className = "fq-doc-action-button fq-doc-more-summary";
+    summary.title = "更多";
+    summary.setAttribute("aria-label", "更多");
+    summary.innerHTML = getToolbarIconSvg("more");
+
+    const panel = document.createElement("div");
+    panel.className = "fq-doc-more-panel";
+    panel.addEventListener("click", (event) => event.stopPropagation());
+
+    const fontSizeControl = createNumberInputControl({
+      label: "字号",
+      prefix: "字号",
+      value: state.settings.fontSize,
+      min: 14,
+      max: 28,
+      step: 1,
+      suffix: "px",
+      onCommit: (fontSize) => updateSettings({ fontSize }),
+    });
+    fontSizeControl.classList.add("fq-doc-menu-number-control");
+
+    const themeControl = createSegmentedControl({
+      label: "主题",
+      value: state.settings.theme,
+      options: [
+        { value: "system", text: "系统" },
+        { value: "paper", text: "浅色" },
+        { value: "green", text: "护眼" },
+        { value: "dark", text: "深色" },
+      ],
+      onChange: (theme) => updateSettings({ theme }),
+    });
+    themeControl.classList.add("fq-doc-menu-theme-control");
+
+    panel.append(fontSizeControl, themeControl);
+    details.append(summary, panel);
+    details.addEventListener("toggle", () => {
+      state.moreMenuOpen = details.open;
+      if (details.open) {
+        installMoreMenuDismissHandlers(details, summary);
+        return;
+      }
+      cleanupMoreMenuDismissHandlers();
+    });
+
+    if (state.moreMenuOpen) {
+      details.open = true;
+      window.setTimeout(() => {
+        if (details.open) {
+          installMoreMenuDismissHandlers(details, summary);
+        }
+      }, 0);
+    }
+
+    return details;
+  }
+
+  function installMoreMenuDismissHandlers(details, summary) {
+    cleanupMoreMenuDismissHandlers();
+
+    const closeOnOutside = (event) => {
+      if (!details.contains(event.target)) {
+        state.moreMenuOpen = false;
+        details.open = false;
+      }
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        state.moreMenuOpen = false;
+        details.open = false;
+        summary.focus();
+      }
+    };
+
+    window.addEventListener("pointerdown", closeOnOutside, true);
+    window.addEventListener("keydown", closeOnEscape, true);
+    state.moreMenuCleanup = () => {
+      window.removeEventListener("pointerdown", closeOnOutside, true);
+      window.removeEventListener("keydown", closeOnEscape, true);
+      state.moreMenuCleanup = null;
+    };
+  }
+
+  function cleanupMoreMenuDismissHandlers() {
+    state.moreMenuCleanup?.();
   }
 
   function createStaticToolbarIcon({ title, icon }) {
@@ -1572,6 +1666,10 @@
         '<path d="M6 9V3h12v6"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v7H6z"></path>',
       more:
         '<circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle>',
+      chapterPrev:
+        '<path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path>',
+      chapterNext:
+        '<path d="m15 14 5-5-5-5"></path><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"></path>',
     };
     return `<svg class="fq-doc-action-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[icon] || icons.more}</svg>`;
   }

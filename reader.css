@@ -37,23 +37,23 @@
 }
 
 #fq-doc-reader-root[data-theme="green"] {
-  --fq-doc-workspace: #e8eee8;
-  --fq-doc-page: #fbfff8;
-  --fq-doc-page-border: #cfdccb;
-  --fq-doc-toolbar: #f5f9f3;
-  --fq-doc-toolbar-border: #cfdbc8;
-  --fq-doc-text: #223229;
-  --fq-doc-muted: #667267;
-  --fq-doc-control: #ffffff;
-  --fq-doc-control-hover: #edf6ec;
-  --fq-doc-control-active: #dcefd9;
-  --fq-doc-accent: #7d877c;
-  --fq-doc-shadow: 0 18px 42px rgba(32, 57, 36, 0.16);
-  --fq-doc-scrollbar-track: #eef4ec;
-  --fq-doc-scrollbar-button: #e1eadd;
-  --fq-doc-scrollbar-thumb: #aebaaa;
-  --fq-doc-scrollbar-thumb-hover: #8f9d8c;
-  --fq-doc-scrollbar-arrow: #667267;
+  --fq-doc-workspace: #d5dfd2;
+  --fq-doc-page: #e8f0e3;
+  --fq-doc-page-border: #bacbb5;
+  --fq-doc-toolbar: #dfe8dc;
+  --fq-doc-toolbar-border: #b7c8b2;
+  --fq-doc-text: #1f2f25;
+  --fq-doc-muted: #596b5f;
+  --fq-doc-control: #eaf1e6;
+  --fq-doc-control-hover: #dce9d8;
+  --fq-doc-control-active: #cbdcc7;
+  --fq-doc-accent: #6f866c;
+  --fq-doc-shadow: 0 18px 42px rgba(41, 64, 45, 0.18);
+  --fq-doc-scrollbar-track: #d9e3d6;
+  --fq-doc-scrollbar-button: #ccd9c8;
+  --fq-doc-scrollbar-thumb: #8faa88;
+  --fq-doc-scrollbar-thumb-hover: #718f6e;
+  --fq-doc-scrollbar-arrow: #526956;
 }
 
 #fq-doc-reader-root[data-theme="dark"] {
@@ -598,6 +598,12 @@ body.fq-doc-reader-active {
   padding: 0;
 }
 
+.fq-doc-nav-button .fq-doc-action-icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
 .fq-doc-segmented {
   display: inline-flex;
   align-items: center;
@@ -652,18 +658,114 @@ body.fq-doc-reader-active {
   border-radius: 2px;
 }
 
+.fq-doc-more-menu {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+.fq-doc-more-summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.fq-doc-more-summary::-webkit-details-marker {
+  display: none;
+}
+
 button.fq-doc-action-button {
   cursor: pointer;
 }
 
-button.fq-doc-action-button:hover {
+button.fq-doc-action-button:hover,
+.fq-doc-more-summary:hover,
+.fq-doc-more-menu[open] .fq-doc-more-summary {
   color: var(--fq-doc-text);
   background: color-mix(in srgb, var(--fq-doc-control-hover), transparent 30%);
 }
 
-button.fq-doc-action-button:focus-visible {
+button.fq-doc-action-button:focus-visible,
+.fq-doc-more-summary:focus-visible {
   outline: 2px solid var(--fq-doc-accent);
   outline-offset: 2px;
+}
+
+.fq-doc-more-panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 5;
+  min-width: 226px;
+  padding: 10px;
+  background: var(--fq-doc-toolbar);
+  border: 1px solid var(--fq-doc-toolbar-border);
+  border-radius: 6px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+}
+
+.fq-doc-more-panel::before {
+  position: absolute;
+  top: -5px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  background: var(--fq-doc-toolbar);
+  border-top: 1px solid var(--fq-doc-toolbar-border);
+  border-left: 1px solid var(--fq-doc-toolbar-border);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.fq-doc-menu-number-control {
+  gap: 8px;
+  width: 100%;
+  justify-content: flex-start;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.fq-doc-menu-number-control .fq-doc-number-input {
+  width: 46px;
+  height: 26px;
+  margin-left: auto;
+  background: color-mix(in srgb, var(--fq-doc-control), #000 8%);
+  border: 1px solid var(--fq-doc-toolbar-border);
+  border-radius: 4px;
+}
+
+.fq-doc-menu-number-control .fq-doc-number-input:focus {
+  background: var(--fq-doc-control);
+  outline: 1px solid var(--fq-doc-accent);
+}
+
+.fq-doc-menu-number-control .fq-doc-number-prefix,
+.fq-doc-menu-number-control .fq-doc-number-suffix {
+  padding: 0;
+}
+
+.fq-doc-menu-theme-control {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.fq-doc-menu-theme-control .fq-doc-control-label {
+  flex: 0 0 auto;
+}
+
+.fq-doc-menu-theme-control .fq-doc-segmented {
+  flex: 0 0 auto;
+}
+
+.fq-doc-menu-theme-control .fq-doc-segment {
+  min-width: 34px;
+  padding: 0 7px;
 }
 
 .fq-doc-action-static {
