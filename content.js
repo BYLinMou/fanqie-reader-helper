@@ -65,6 +65,22 @@
     "src/images.png",
     "src/Recommender-Systems_.webp",
   ];
+  const FIGURE_ASSET_DIMENSIONS = {
+    "src/0_lRi888vssyKrR2Ks.jpg": [1400, 788],
+    "src/1-s2.0-S0925231223010044-gr3.jpg": [646, 357],
+    "src/1_zOaGnixBZ9VuLm8ig_r7Ig.png": [1200, 441],
+    "src/1b4M7o7W8bfRRxdMxtFoVBQ.webp": [2565, 1200],
+    "src/2-Figure1-1.png": [1050, 674],
+    "src/images (1).jpg": [576, 336],
+    "src/images (1).png": [602, 332],
+    "src/images (2).jpg": [741, 325],
+    "src/images (2).png": [576, 257],
+    "src/images (3).jpg": [618, 323],
+    "src/images (3).png": [576, 243],
+    "src/images.jpg": [846, 362],
+    "src/images.png": [810, 378],
+    "src/Recommender-Systems_.webp": [801, 401],
+  };
 
   const SOURCE_SELECTORS = [
     ".muye-reader-content",
@@ -1298,14 +1314,26 @@
     appendPageToScroller(scroller, page);
 
     contentNodes.forEach((node) => {
-      const insertedFigure = maybeInsertPageFigure(body, node, pageFigureState);
+      const figureResult = maybeInsertPageFigure(body, node, pageFigureState);
       body.append(node);
 
       if (isPageBodyOverflowing(body) && body.childElementCount > 1) {
         body.removeChild(node);
-        if (insertedFigure?.parentNode === body) {
-          body.removeChild(insertedFigure);
+        const carryNodes = [];
+        if (figureResult?.countedGap) {
+          pageFigureState.paragraphGapCount = Math.max(
+            0,
+            pageFigureState.paragraphGapCount - 1,
+          );
+        }
+        if (figureResult?.figure?.parentNode === body) {
+          body.removeChild(figureResult.figure);
           pageFigureState.figureInserted = false;
+          if (figureResult.previousParagraph?.parentNode === body) {
+            body.removeChild(figureResult.previousParagraph);
+            carryNodes.push(figureResult.previousParagraph);
+          }
+          carryNodes.push(figureResult.figure);
         }
         const keepWithNextNode = takeKeepWithNextNode(body);
         page = createPageShell(pages.length + 1);
@@ -1315,6 +1343,12 @@
         pageFigureState = createPageFigureState(pages.length);
         if (keepWithNextNode) {
           body.append(keepWithNextNode);
+        }
+        carryNodes.forEach((carryNode) => {
+          body.append(carryNode);
+        });
+        if (carryNodes.some((carryNode) => carryNode.classList?.contains("fq-doc-page-figure"))) {
+          pageFigureState.figureInserted = true;
         }
         body.append(node);
       }
@@ -1350,6 +1384,8 @@
   function createPageFigureState(pageNumber) {
     return {
       pageNumber,
+      targetGap: getPageFigureTargetGap(pageNumber),
+      paragraphGapCount: 0,
       figureInserted: false,
     };
   }
@@ -1365,22 +1401,49 @@
       return null;
     }
 
+    pageFigureState.paragraphGapCount += 1;
+    if (pageFigureState.paragraphGapCount < pageFigureState.targetGap) {
+      return {
+        countedGap: true,
+        figure: null,
+        previousParagraph: null,
+      };
+    }
+
+    const previousParagraph = body.lastElementChild;
     const figure = createPageFigureNode(pageFigureState.pageNumber);
     body.append(figure);
     pageFigureState.figureInserted = true;
-    return figure;
+    return {
+      countedGap: true,
+      figure,
+      previousParagraph,
+    };
+  }
+
+  function getPageFigureTargetGap(pageNumber) {
+    const seed = createStableHash(
+      `${state.chapterIdentity || location.pathname}::${state.fingerprint}::figure-gap::${pageNumber}`,
+    );
+    return (seed % 4) + 1;
   }
 
   function createPageFigureNode(pageNumber) {
     const figure = document.createElement("figure");
     figure.className = "fq-doc-page-figure";
 
+    const assetPath = selectPageFigureAsset(pageNumber);
+    const [width, height] = FIGURE_ASSET_DIMENSIONS[assetPath] || [];
     const image = document.createElement("img");
     image.className = "fq-doc-page-figure-image";
-    image.src = getExtensionAssetUrl(selectPageFigureAsset(pageNumber));
+    image.src = getExtensionAssetUrl(assetPath);
     image.alt = "论文插图";
     image.loading = "lazy";
     image.decoding = "async";
+    if (width && height) {
+      image.width = width;
+      image.height = height;
+    }
 
     figure.append(image);
     return figure;
