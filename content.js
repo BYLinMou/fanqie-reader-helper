@@ -96,6 +96,7 @@
       title: "正在等待正文",
       paragraphs: [],
       wordCount: 0,
+      contentFontFamily: "",
     },
     fingerprint: "",
     observer: null,
@@ -323,16 +324,21 @@
 
   function extractChapter() {
     const source = findBestSourceContainer();
-    setSourceContainer(source);
+    if (source) {
+      source.classList.remove(SOURCE_HIDDEN_CLASS);
+    }
 
     const title = findTitle(source);
     const paragraphs = source ? collectParagraphs(source, title) : [];
     const wordCount = countReadableCharacters(paragraphs.join(""));
+    const contentFontFamily = getContentFontFamily(source);
+    setSourceContainer(source);
 
     return {
       title: title || "正在等待正文",
       paragraphs,
       wordCount,
+      contentFontFamily,
     };
   }
 
@@ -428,7 +434,7 @@
           if (state.root && state.root.contains(element)) {
             return;
           }
-          const text = normalizeTitle(element.textContent || "");
+          const text = normalizeTitle(readElementText(element));
           if (isLikelyTitle(text)) {
             scopedCandidates.push(text);
           }
@@ -463,7 +469,7 @@
 
     let blocks = Array.from(source.querySelectorAll("p"))
       .filter((element) => !hasForbiddenRole(element))
-      .map((element) => cleanParagraphText(element.textContent || "", title))
+      .map((element) => cleanParagraphText(readElementText(element), title))
       .filter(Boolean);
 
     if (blocks.length < 2) {
@@ -475,7 +481,7 @@
     }
 
     if (!blocks.length) {
-      blocks = splitLooseParagraphs(source.innerText || source.textContent || "", title);
+      blocks = splitLooseParagraphs(readElementText(source), title);
     }
 
     return dedupeParagraphs(blocks);
@@ -498,7 +504,7 @@
         return;
       }
 
-      const text = cleanParagraphText(element.textContent || "", title);
+      const text = cleanParagraphText(readElementText(element), title);
       if (text) {
         blocks.push(text);
       }
@@ -508,7 +514,7 @@
   }
 
   function isLeafReadableBlock(element) {
-    const text = cleanText(element.textContent || "");
+    const text = cleanText(readElementText(element));
     if (text.length < 8) {
       return false;
     }
@@ -517,7 +523,7 @@
       if (!(child instanceof HTMLElement) || hasForbiddenRole(child)) {
         return false;
       }
-      const childText = cleanText(child.textContent || "");
+      const childText = cleanText(readElementText(child));
       return childText.length >= 8 && isBlockElement(child);
     });
 
@@ -557,11 +563,29 @@
   function cleanText(text) {
     return String(text || "")
       .replace(/[\u200b-\u200f\ufeff]/g, "")
+      .replace(/[\u00a0\u1680\u180e\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, " ")
       .replace(/\r/g, "\n")
-      .replace(/[ \t\f\v]+/g, " ")
+      .replace(/[^\S\n]+/g, " ")
       .replace(/\n[ \t]+/g, "\n")
       .replace(/[ \t]+\n/g, "\n")
+      .replace(/([\u4e00-\u9fff]) +(?=[\u4e00-\u9fff])/g, "$1")
+      .replace(/([\u4e00-\u9fffA-Za-z0-9]) +(?=[，。！？、；：”’」』）】》])/g, "$1")
+      .replace(/([“‘「『（【《]) +(?=[\u4e00-\u9fffA-Za-z0-9])/g, "$1")
+      .replace(/([，。！？、；：]) +(?=[\u4e00-\u9fff“‘「『（【《])/g, "$1")
       .trim();
+  }
+
+  function readElementText(element) {
+    if (!(element instanceof HTMLElement)) {
+      return element?.textContent || "";
+    }
+
+    const visibleText = element.innerText || "";
+    if (cleanText(visibleText)) {
+      return visibleText;
+    }
+
+    return element.textContent || "";
   }
 
   function dedupeParagraphs(blocks) {
@@ -589,9 +613,33 @@
       chapter.title,
       chapter.wordCount,
       chapter.paragraphs.length,
+      chapter.contentFontFamily,
       chapter.paragraphs.slice(0, 2).join("|"),
       chapter.paragraphs.slice(-2).join("|"),
     ].join("::");
+  }
+
+  function getContentFontFamily(source) {
+    if (!(source instanceof HTMLElement)) {
+      return "";
+    }
+
+    const targets = [
+      source,
+      source.querySelector("p"),
+      source.closest(".muye-reader-box"),
+      source.closest("[class*='reader-box']"),
+      source.closest("[class*='reader']"),
+    ].filter((element) => element instanceof HTMLElement);
+
+    for (const element of targets) {
+      const fontFamily = getComputedStyle(element).fontFamily;
+      if (fontFamily && fontFamily !== "inherit") {
+        return fontFamily;
+      }
+    }
+
+    return "";
   }
 
   function setSourceContainer(source) {
@@ -703,6 +751,10 @@
     state.root.dataset.theme = state.settings.theme;
     state.root.style.setProperty("--fq-doc-font-size", `${state.settings.fontSize}px`);
     state.root.style.setProperty("--fq-doc-line-height", String(state.settings.lineHeight));
+    state.root.style.setProperty(
+      "--fq-doc-content-font-family",
+      state.chapter.contentFontFamily || "serif",
+    );
     state.root.style.setProperty(
       "--fq-doc-page-width",
       `${PAGE_WIDTHS[state.settings.pageWidth]}px`,

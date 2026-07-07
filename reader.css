@@ -2,6 +2,7 @@
   --fq-doc-font-size: 18px;
   --fq-doc-line-height: 1.85;
   --fq-doc-page-width: 860px;
+  --fq-doc-content-font-family: serif;
   --fq-doc-workspace: #eceff3;
   --fq-doc-page: #ffffff;
   --fq-doc-page-border: #d9dde2;
@@ -186,6 +187,7 @@ body.fq-doc-reader-active {
   margin: 0 0 calc(var(--fq-doc-font-size) * 0.9);
   color: var(--fq-doc-text);
   font-family:
+    var(--fq-doc-content-font-family),
     "Noto Serif SC",
     "Songti SC",
     "STSong",
@@ -195,7 +197,7 @@ body.fq-doc-reader-active {
   font-weight: 400;
   line-height: var(--fq-doc-line-height);
   letter-spacing: 0;
-  text-align: justify;
+  text-align: left;
   text-indent: 2em;
   overflow-wrap: break-word;
 }
