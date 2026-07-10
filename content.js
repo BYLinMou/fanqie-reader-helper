@@ -33,6 +33,7 @@
   const PAGE_SCALE_MAX = 140;
   const PAGE_SCALE_STEP = 5;
   const WHEEL_ZOOM_INTERVAL = 80;
+  const KEYBOARD_LINE_SCROLL = 72;
   const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
   const THESIS_HEADING_BASE_INTERVAL = 230;
   const THESIS_HEADING_INTERVAL_OFFSETS = [0, 35, -20, 30, -10, 45];
@@ -258,6 +259,7 @@
     installStorageListener();
     installSystemThemeListener();
     installZoomShortcuts();
+    installDocumentKeyboardShortcuts();
     refresh("init");
 
     [250, 900, 1800, 3500].forEach((delay) => {
@@ -418,6 +420,15 @@
     });
   }
 
+  function installDocumentKeyboardShortcuts() {
+    if (window.__fanqieDocumentReaderKeyboardShortcuts) {
+      return;
+    }
+    window.__fanqieDocumentReaderKeyboardShortcuts = true;
+
+    window.addEventListener("keydown", handleDocumentKeydown, true);
+  }
+
   function handleZoomKeydown(event) {
     if (!shouldHandleDocumentZoom() || !isZoomModifierPressed(event)) {
       return;
@@ -459,6 +470,74 @@
     state.lastWheelZoomAt = now;
 
     adjustPageScale(event.deltaY < 0 ? PAGE_SCALE_STEP : -PAGE_SCALE_STEP);
+  }
+
+  function handleDocumentKeydown(event) {
+    const scroller = state.root?.querySelector(".fq-doc-scroller");
+    if (
+      !state.settings.enabled ||
+      !state.root?.classList.contains("fq-doc-shell") ||
+      !scroller ||
+      event.defaultPrevented ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      isKeyboardInputTarget(event.target)
+    ) {
+      return;
+    }
+
+    const scrollDelta = getKeyboardScrollDelta(event, scroller);
+    if (scrollDelta === null) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    scrollDocumentByKey(scroller, scrollDelta);
+  }
+
+  function isKeyboardInputTarget(target) {
+    if (!(target instanceof Element)) {
+      return false;
+    }
+
+    return Boolean(
+      target.closest(
+        "input, textarea, select, button, [contenteditable=''], [contenteditable='true']",
+      ),
+    );
+  }
+
+  function getKeyboardScrollDelta(event, scroller) {
+    const pageStep = Math.max(KEYBOARD_LINE_SCROLL, scroller.clientHeight * 0.86);
+
+    switch (event.key) {
+      case "ArrowDown":
+        return KEYBOARD_LINE_SCROLL;
+      case "ArrowUp":
+        return -KEYBOARD_LINE_SCROLL;
+      case "PageDown":
+        return pageStep;
+      case "PageUp":
+        return -pageStep;
+      case " ":
+      case "Spacebar":
+        return event.shiftKey ? -pageStep : pageStep;
+      case "Home":
+        return -scroller.scrollTop;
+      case "End":
+        return scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+      default:
+        return null;
+    }
+  }
+
+  function scrollDocumentByKey(scroller, top) {
+    scroller.scrollBy({
+      top,
+      behavior: "smooth",
+    });
   }
 
   function shouldHandleDocumentZoom() {
